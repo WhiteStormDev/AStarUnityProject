@@ -15,7 +15,7 @@ public class AStarAgent : MonoBehaviour
     private List<AStarNode> _path;
     private int _currentNodeIndex;
 
-    private Vector2? _destinationPosition;
+    //private Vector2? _destinationPosition;
 
     private void Update()
     {
@@ -27,7 +27,7 @@ public class AStarAgent : MonoBehaviour
                 return;
             }
 
-            SetPath(DestinationTarget.position);
+			SetPath(DestinationTarget.position);
             _currentPathUpdateTimer = PathUpdateTimer;
         }
 
@@ -67,8 +67,13 @@ public class AStarAgent : MonoBehaviour
     /// <returns></returns>
     public List<AStarNode> SetPath(Vector2 position)
     {
-        List<AStarNode> path = new List<AStarNode>();
+		List<AStarNode> path = AStarPathfinding.Instance.GetPath(transform.position, position);
         _currentNodeIndex = 0;
+
+		if (path != null)
+			_path = path;
+		else
+			Debug.LogWarning("NULL path");
 
         return path;
     }

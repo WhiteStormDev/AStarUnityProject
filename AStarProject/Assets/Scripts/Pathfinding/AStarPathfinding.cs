@@ -3,6 +3,8 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEditor;
 using UnityEngine;
+using System.Linq;
+using System.Drawing;
 
 public enum CheckingMode
 {
@@ -26,6 +28,8 @@ public class AStarPathfinding : MonoBehaviour
 
     public static AStarPathfinding Instance { get; protected set; }
 
+	//public AStarNode GetAStarNode(Point gridPoint) => _grid.GetLength(0) <= gridPoint.X || _grid.GetLength(1) <= gridPoint.Y ? null : _grid[gridPoint.X, gridPoint.Y];
+	
     private void Awake()
     {
         Instance = this;
@@ -34,6 +38,7 @@ public class AStarPathfinding : MonoBehaviour
     private void Start()
     {
         SetClampedScanBounds(ScanBounds);
+		Scan();
     }
 
     private void SetClampedScanBounds(Bounds bounds)
@@ -67,7 +72,7 @@ public class AStarPathfinding : MonoBehaviour
             for (float y = _clampedScanBounds.min.y; y < _clampedScanBounds.max.y - NodeSize / 2; y += NodeSize)
             {
                 var center = new Vector2(x + NodeSize / 2, y + NodeSize / 2);
-                _grid[i, j] = CreateNode(center);
+                _grid[i, j] = CreateNode(center, new Point(i, j));
                 j++;
             }
             i++;
@@ -75,10 +80,11 @@ public class AStarPathfinding : MonoBehaviour
         }
     }
 
-    private AStarNode CreateNode(Vector2 center)
+    private AStarNode CreateNode(Vector2 center, Point gridPosition)
     {
         AStarNode node = new AStarNode();
         node.Center = center;
+		node.GridPosition = gridPosition;
         switch (CheckingMode)
         {
             case CheckingMode.Circle:
@@ -100,26 +106,51 @@ public class AStarPathfinding : MonoBehaviour
 
     public List<AStarNode> GetMinimumPath(Vector2 position)
     {
-
+		return null;
     }
 
-    public List<AStarNode> GetPath(Vector2 position)
-    {
 
-    }
+	public List<AStarNode> GetPath(Vector2 startPosition, Vector2 goalPosition)
+	{
+		var start = GetNearestNode(startPosition);
+		var goal = GetNearestNode(goalPosition);
 
-    public static List<AStarNode> FindPath(int[,] field, AStarNode start, AStarNode goal)
+		if (start == null)
+		{
+			Debug.LogWarning("Can't find StartNode");
+			return null;
+		}
+
+		if (goal == null)
+		{
+			Debug.LogWarning("Can't find EndNode");
+			return null;
+		}
+
+		var pathNodes = FindPath(start, goal);
+		if (pathNodes == null)
+		{
+			Debug.LogWarning("NULL pathNodes");
+			return null;
+		}
+		List<AStarNode> result = new List<AStarNode>(pathNodes.Count);
+		pathNodes.ForEach(pn => result.Add(GetNodeByIndex(pn.Position.X, pn.Position.Y)));
+		return result;
+	}
+
+    private List<AStarPathNode> FindPath(AStarNode start, AStarNode goal)
     {
+		Debug.Log("Finding path from " + start.GridPosition + " to " + goal.GridPosition);
         // Шаг 1.
-        var closedSet = new List<AStarNode>();
-        var openSet = new List<AStarNode>();
+        var closedSet = new List<AStarPathNode>();
+        var openSet = new List<AStarPathNode>();
         // Шаг 2.
-        AStarNode startNode = new PathNode()
+        AStarPathNode startNode = new AStarPathNode()
         {
-            Position = start,
+            Position = start.GridPosition,
             CameFrom = null,
             PathLengthFromStart = 0,
-            HeuristicEstimatePathLength = GetHeuristicPathLength(start, goal)
+            HeuristicEstimatePathLength = GetHeuristicPathLength(start.GridPosition, goal.GridPosition)
         };
         openSet.Add(startNode);
         while (openSet.Count > 0)
@@ -128,16 +159,16 @@ public class AStarPathfinding : MonoBehaviour
             var currentNode = openSet.OrderBy(node =>
               node.EstimateFullPathLength).First();
             // Шаг 4.
-            if (currentNode.Position == goal)
+            if (currentNode.Position == goal.GridPosition)
                 return GetPathForNode(currentNode);
             // Шаг 5.
             openSet.Remove(currentNode);
             closedSet.Add(currentNode);
             // Шаг 6.
-            foreach (var neighbourNode in GetNeighbours(currentNode, goal, field))
+            foreach (var neighbourNode in GetNeighbours(currentNode, goal.GridPosition))
             {
                 // Шаг 7.
-                if (closedSet.Count(node => node.Position == neighbourNode.Position) > 0)
+                if (closedSet.FindAll(node => node.Position == neighbourNode.Position).Count > 0)
                     continue;
                 var openNode = openSet.FirstOrDefault(node =>
                   node.Position == neighbourNode.Position);
@@ -157,7 +188,66 @@ public class AStarPathfinding : MonoBehaviour
         return null;
     }
 
-    public AStarNode GetNearestNode(Vector2 position, Predicate<AStarNode> predicate = null, int maxCheckCount = -1)
+	private int GetDistanceBetweenNeighbours()
+	{
+		return 1;
+	}
+
+	private int GetHeuristicPathLength(Point from, Point to)
+	{
+		return Math.Abs(from.X - to.X) + Math.Abs(from.Y - to.Y);
+	}
+
+	private List<AStarPathNode> GetNeighbours(AStarPathNode pathNode,
+  Point goal)
+	{
+		var result = new List<AStarPathNode>();
+
+		// Соседними точками являются соседние по стороне клетки.
+		Point[] neighbourPoints = new Point[4];
+		neighbourPoints[0] = new Point(pathNode.Position.X + 1, pathNode.Position.Y);
+		neighbourPoints[1] = new Point(pathNode.Position.X - 1, pathNode.Position.Y);
+		neighbourPoints[2] = new Point(pathNode.Position.X, pathNode.Position.Y + 1);
+		neighbourPoints[3] = new Point(pathNode.Position.X, pathNode.Position.Y - 1);
+
+		foreach (var point in neighbourPoints)
+		{
+			// Проверяем, что не вышли за границы карты.
+			if (point.X < 0 || point.X >= _grid.GetLength(0))
+				continue;
+			if (point.Y < 0 || point.Y >= _grid.GetLength(1))
+				continue;
+			// Проверяем, что по клетке можно ходить.
+			if (_grid[point.X, point.Y] != null && _grid[point.X, point.Y].Walkable)
+				continue;
+			// Заполняем данные для точки маршрута.
+			var neighbourNode = new AStarPathNode()
+			{
+				Position = point,
+				CameFrom = pathNode,
+				PathLengthFromStart = pathNode.PathLengthFromStart +
+				GetDistanceBetweenNeighbours(),
+				HeuristicEstimatePathLength = GetHeuristicPathLength(point, goal)
+			};
+			result.Add(neighbourNode);
+		}
+		return result;
+	}
+
+	private static List<AStarPathNode> GetPathForNode(AStarPathNode pathNode)
+	{
+		var result = new List<AStarPathNode>();
+		var currentNode = pathNode;
+		while (currentNode != null)
+		{
+			result.Add(currentNode);
+			currentNode = currentNode.CameFrom;
+		}
+		result.Reverse();
+		return result;
+	}
+
+	public AStarNode GetNearestNode(Vector2 position, Predicate<AStarNode> predicate = null, int maxCheckCount = -1)
     {
         if (!_clampedScanBounds.Contains(position))
             return null;
@@ -227,13 +317,13 @@ public class AStarPathfinding : MonoBehaviour
             }
         }
 
-        Gizmos.color = Color.gray;
+        Gizmos.color = UnityEngine.Color.gray;
         walkables.ForEach(w => Gizmos.DrawWireCube(w.Center, new Vector3(NodeSize, NodeSize, 0)));
 
-        Gizmos.color = new Color(0.9f, 0.9f, 0.9f, 0.3f);
+        Gizmos.color = new UnityEngine.Color(0.9f, 0.9f, 0.9f, 0.3f);
         walls.ForEach(w => Gizmos.DrawCube(w.Center, new Vector3(NodeSize, NodeSize, 0)));
 
-        Gizmos.color = new Color(Color.red.r, Color.red.g, Color.red.b, 0.3f);
+        Gizmos.color = new UnityEngine.Color(UnityEngine.Color.red.r, UnityEngine.Color.red.g, UnityEngine.Color.red.b, 0.3f);
         damagers.ForEach(d => Gizmos.DrawCube(d.Center, new Vector3(NodeSize, NodeSize, 0)));
     }
 
@@ -253,7 +343,7 @@ public class AStarPathfinding : MonoBehaviour
 
     private void OnDrawGizmosSelected()
     {
-        Gizmos.color = Color.blue;
+        Gizmos.color = UnityEngine.Color.blue;
         Gizmos.DrawLine(_clampedScanBounds.min, new Vector3(_clampedScanBounds.min.x, _clampedScanBounds.max.y));
         Gizmos.DrawLine(_clampedScanBounds.min, new Vector3(_clampedScanBounds.max.x, _clampedScanBounds.min.y));
         Gizmos.DrawLine(_clampedScanBounds.max, new Vector3(_clampedScanBounds.min.x, _clampedScanBounds.max.y));
@@ -278,8 +368,10 @@ public class AStarPathfinding : MonoBehaviour
 #endif
 }
 
+#if UNITY_EDITOR
 [CustomEditor(typeof(AStarPathfinding)), CanEditMultipleObjects]
 public class AStarPathfindingEditor : Editor
 {
-
+	
 }
+#endif
