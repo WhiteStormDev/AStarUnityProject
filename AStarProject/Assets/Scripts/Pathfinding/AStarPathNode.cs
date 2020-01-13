@@ -16,5 +16,9 @@ public class AStarPathNode
 	// Ожидаемое полное расстояние до цели (F).
 	public int EstimateFullPathLength => PathLengthFromStart + HeuristicEstimatePathLength;
 
-	public AStarNode GridNode { get; set; }
+	public float DamageValueFromStart { get; set; }
+	public float HeruisticEstimateDamageValue { get; set; }
+	public float EstimateFullDamageValue => DamageValueFromStart + HeruisticEstimateDamageValue;
+
+	//public AStarNode GridNode { get; set; }
 }

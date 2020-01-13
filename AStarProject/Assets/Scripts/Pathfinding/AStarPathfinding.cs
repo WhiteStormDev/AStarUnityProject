@@ -133,6 +133,8 @@ public class AStarPathfinding : MonoBehaviour
 			Debug.LogWarning("NULL pathNodes");
 			return null;
 		}
+		Debug.Log("PATH DAMAGE: " + GetPathDamage(pathNodes));
+
 		List<AStarNode> result = new List<AStarNode>(pathNodes.Count);
 		pathNodes.ForEach(pn => result.Add(GetNodeByIndex(pn.Position.X, pn.Position.Y)));
 		return result;
@@ -144,13 +146,15 @@ public class AStarPathfinding : MonoBehaviour
         // Шаг 1.
         var closedSet = new List<AStarPathNode>();
         var openSet = new List<AStarPathNode>();
-        // Шаг 2.
-        AStarPathNode startNode = new AStarPathNode()
-        {
-            Position = start.GridPosition,
-            CameFrom = null,
-            PathLengthFromStart = 0,
-            HeuristicEstimatePathLength = GetHeuristicPathLength(start.GridPosition, goal.GridPosition)
+		// Шаг 2.
+		AStarPathNode startNode = new AStarPathNode()
+		{
+			Position = start.GridPosition,
+			CameFrom = null,
+			PathLengthFromStart = 0,
+			HeuristicEstimatePathLength = GetHeuristicPathLength(start.GridPosition, goal.GridPosition),
+			DamageValueFromStart = start.DamageValue
+			//HeruisticEstimateDamageValue = 
         };
         openSet.Add(startNode);
         while (openSet.Count > 0)
@@ -158,8 +162,9 @@ public class AStarPathfinding : MonoBehaviour
             // Шаг 3.
             var currentNode = openSet.OrderBy(node =>
               node.EstimateFullPathLength).First();
-            // Шаг 4.
-            if (currentNode.Position == goal.GridPosition)
+			// Шаг 4.
+			if (currentNode.Position == goal.GridPosition)
+				//return openSet;
                 return GetPathForNode(currentNode);
             // Шаг 5.
             openSet.Remove(currentNode);
@@ -218,7 +223,7 @@ public class AStarPathfinding : MonoBehaviour
 			if (point.Y < 0 || point.Y >= _grid.GetLength(1))
 				continue;
 			// Проверяем, что по клетке можно ходить.
-			if (_grid[point.X, point.Y] != null && _grid[point.X, point.Y].Walkable)
+			if (_grid[point.X, point.Y] != null && !_grid[point.X, point.Y].Walkable)
 				continue;
 			// Заполняем данные для точки маршрута.
 			var neighbourNode = new AStarPathNode()
@@ -227,24 +232,30 @@ public class AStarPathfinding : MonoBehaviour
 				CameFrom = pathNode,
 				PathLengthFromStart = pathNode.PathLengthFromStart +
 				GetDistanceBetweenNeighbours(),
-				HeuristicEstimatePathLength = GetHeuristicPathLength(point, goal)
+				HeuristicEstimatePathLength = GetHeuristicPathLength(point, goal),
+				DamageValueFromStart = pathNode.DamageValueFromStart + _grid[point.X, point.Y].DamageValue
 			};
 			result.Add(neighbourNode);
 		}
 		return result;
 	}
 
-	private static List<AStarPathNode> GetPathForNode(AStarPathNode pathNode)
+	private List<AStarPathNode> GetPathForNode(AStarPathNode pathNode)
 	{
 		var result = new List<AStarPathNode>();
 		var currentNode = pathNode;
 		while (currentNode != null)
 		{
+			
 			result.Add(currentNode);
 			currentNode = currentNode.CameFrom;
 		}
 		result.Reverse();
 		return result;
+	}
+	private float GetPathDamage(List<AStarPathNode> path)
+	{
+		return path.Last().DamageValueFromStart;
 	}
 
 	public AStarNode GetNearestNode(Vector2 position, Predicate<AStarNode> predicate = null, int maxCheckCount = -1)
