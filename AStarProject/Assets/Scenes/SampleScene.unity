@@ -989,7 +989,8 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   DestinationTarget: {fileID: 514287831}
   PathUpdateTimer: 1
-  CanMove: 1
+  MinimumDistance: 27
+  CanMove: 0
   OneNodeMoveDuration: 0.1
   NodeStopTimer: 0.1
 --- !u!4 &412935111

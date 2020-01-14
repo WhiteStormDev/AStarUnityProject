@@ -8,7 +8,8 @@ public class AStarAgent : MonoBehaviour
     public Transform DestinationTarget;
     public float PathUpdateTimer = 1f;
 
-	[Header("Movement")]
+    [Header("Movement")]
+    public int MinimumDistance = -1;
 	public bool CanMove;
 	public float OneNodeMoveDuration;
     public float NodeStopTimer = 0.2f;
@@ -74,7 +75,7 @@ public class AStarAgent : MonoBehaviour
     /// <returns></returns>
     public List<AStarNode> SetPath(Vector2 position)
     {
-		List<AStarNode> path = AStarPathfinding.Instance.GetPath(transform.position, position);
+		List<AStarNode> path = AStarPathfinding.Instance.GetMinimumPath(transform.position, position, MinimumDistance);
         _currentNodeIndex = 0;
 
 		if (path != null)

@@ -109,8 +109,7 @@ public class AStarPathfinding : MonoBehaviour
 		return null;
     }
 
-
-	public List<AStarNode> GetPath(Vector2 startPosition, Vector2 goalPosition)
+	public List<AStarNode> GetMinimumPath(Vector2 startPosition, Vector2 goalPosition, int minimumDistance = -1)
 	{
 		var start = GetNearestNode(startPosition);
 		var goal = GetNearestNode(goalPosition);
@@ -127,20 +126,20 @@ public class AStarPathfinding : MonoBehaviour
 			return null;
 		}
 
-		var pathNodes = FindPath(start, goal);
+		var pathNodes = FindPath(start, goal, minimumDistance);
 		if (pathNodes == null)
 		{
 			Debug.LogWarning("NULL pathNodes");
 			return null;
 		}
-		Debug.Log("PATH DAMAGE: " + GetPathDamage(pathNodes));
-
+		Debug.Log("PATH DAMAGE: " + GetPathDamage(pathNodes) + "\n" + "PATH LENGTH: " + pathNodes.Count);
+        
 		List<AStarNode> result = new List<AStarNode>(pathNodes.Count);
 		pathNodes.ForEach(pn => result.Add(GetNodeByIndex(pn.Position.X, pn.Position.Y)));
 		return result;
 	}
 
-    private List<AStarPathNode> FindPath(AStarNode start, AStarNode goal)
+    private List<AStarPathNode> FindPath(AStarNode start, AStarNode goal, int minimumDistance = -1)
     {
 		Debug.Log("Finding path from " + start.GridPosition + " to " + goal.GridPosition);
         // Шаг 1.
@@ -170,16 +169,19 @@ public class AStarPathfinding : MonoBehaviour
             openSet.Remove(currentNode);
             closedSet.Add(currentNode);
             // Шаг 6.
-            foreach (var neighbourNode in GetNeighbours(currentNode, goal.GridPosition))
+            foreach (var neighbourNode in GetNeighbours(currentNode, goal.GridPosition, minimumDistance))
             {
                 // Шаг 7.
-                if (closedSet.FindAll(node => node.Position == neighbourNode.Position).Count > 0)
+                if (closedSet.Exists(node => node.Position == neighbourNode.Position))
                     continue;
+
                 var openNode = openSet.FirstOrDefault(node =>
                   node.Position == neighbourNode.Position);
                 // Шаг 8.
                 if (openNode == null)
-                    openSet.Add(neighbourNode);
+                {
+                    openSet.Add(neighbourNode);   
+                }  
                 else
                   if (openNode.PathLengthFromStart > neighbourNode.PathLengthFromStart)
                 {
@@ -198,13 +200,9 @@ public class AStarPathfinding : MonoBehaviour
 		return 1;
 	}
 
-	private int GetHeuristicPathLength(Point from, Point to)
-	{
-		return Math.Abs(from.X - to.X) + Math.Abs(from.Y - to.Y);
-	}
+	private int GetHeuristicPathLength(Point from, Point to) => Math.Abs(from.X - to.X) + Math.Abs(from.Y - to.Y);
 
-	private List<AStarPathNode> GetNeighbours(AStarPathNode pathNode,
-  Point goal)
+	private List<AStarPathNode> GetNeighbours(AStarPathNode pathNode, Point goal, int minimumDistance = -1)
 	{
 		var result = new List<AStarPathNode>();
 
@@ -235,7 +233,9 @@ public class AStarPathfinding : MonoBehaviour
 				HeuristicEstimatePathLength = GetHeuristicPathLength(point, goal),
 				DamageValueFromStart = pathNode.DamageValueFromStart + _grid[point.X, point.Y].DamageValue
 			};
-			result.Add(neighbourNode);
+
+            if (neighbourNode.EstimateFullPathLength >= minimumDistance)
+			    result.Add(neighbourNode);
 		}
 		return result;
 	}
