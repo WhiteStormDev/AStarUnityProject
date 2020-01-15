@@ -5,6 +5,8 @@ using DG.Tweening;
 
 public class AStarAgent : MonoBehaviour
 {
+    public bool IsActive = true;
+    [Space (10f)]
     public Transform DestinationTarget;
     public float PathUpdateTimer = 1f;
 
@@ -16,15 +18,21 @@ public class AStarAgent : MonoBehaviour
     private float _currentNodeStopTimer;
     private float _currentPathUpdateTimer;
 
-	
+    [Header("Unit")]
+    [SerializeField] private UnitController _unit;
 
     private List<AStarNode> _path;
     private int _currentNodeIndex;
+
+    public float CurrentHP => _unit.CurrentHP;
 
     //private Vector2? _destinationPosition;
 
     private void Update()
     {
+        if (!IsActive)
+            return;
+
 		if (DestinationTarget != null)
 		{
 			if (_currentPathUpdateTimer > 0)
@@ -75,7 +83,7 @@ public class AStarAgent : MonoBehaviour
     /// <returns></returns>
     public List<AStarNode> SetPath(Vector2 position)
     {
-		List<AStarNode> path = AStarPathfinding.Instance.GetMinimumPath(transform.position, position, MinimumDistance);
+		List<AStarNode> path = AStarPathfinding.Instance.GetMinimumPath(transform.position, position, this);
         _currentNodeIndex = 0;
 
 		if (path != null)

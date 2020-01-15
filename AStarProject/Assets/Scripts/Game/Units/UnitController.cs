@@ -11,7 +11,9 @@ public abstract class UnitController : MonoBehaviour
 
 	public bool IsDead => _currentHP <= 0;
 
-	private float _currentHP;
+	[SerializeField] private float _currentHP;
+
+    public float CurrentHP => _currentHP;
 
 	private void OnEnable()
 	{
