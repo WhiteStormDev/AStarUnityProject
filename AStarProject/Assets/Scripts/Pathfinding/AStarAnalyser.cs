@@ -1,5 +1,7 @@
-﻿using System.Collections;
+﻿using Assets.Scripts.Base.Pool;
+using System.Collections;
 using System.Collections.Generic;
+using System.IO;
 using UnityEngine;
 
 public enum AnalyseMode
@@ -51,7 +53,7 @@ public class AStarAnalyser : MonoBehaviour
     private class PathResult
     {
         public float DamageSum;
-        public int PathLenth;
+        public int PathLength;
         public int CheckedNodesCount;
         public List<AStarPathNode> Path;
     }
@@ -110,7 +112,7 @@ public class AStarAnalyser : MonoBehaviour
             _pathResults.Add(new PathResult
             {
                 DamageSum = path[path.Count - 1].DamageValueFromStart,
-                PathLenth = path.Count,
+                PathLength = path.Count,
                 CheckedNodesCount = AStarPathfinding.Instance.ClosetSetCount + AStarPathfinding.Instance.OpenSetCount,
                 Path = path
             });
@@ -121,44 +123,51 @@ public class AStarAnalyser : MonoBehaviour
     {
         if (_pathResults == null)
             return;
-        _instantiatedDrawers.ForEach(d => Destroy(d));
+        _instantiatedDrawers.ForEach(d => ReusableLocalPool.Instance.Destroy(d));
+		_instantiatedDrawers.Clear();
+		//TODO сделать единичный отрезок относительно дельты минимального и максимального дамага за пути и тд (под каждую ось свое)
+		//И потом когда расчитываем позицию для отрисовки линии соответвенно относительно конкретных результатов
+		var minDamage = _pathResults.Find(p => _pathResults.TrueForAll(pp => p.DamageSum <= pp.DamageSum));
+		var maxDamage = _pathResults.Find(p => _pathResults.TrueForAll(pp => p.DamageSum >= pp.DamageSum));
 
-        //TODO сделать единичный отрезок относительно дельты минимального и максимального дамага за пути и тд (под каждую ось свое)
-        //И потом когда расчитываем позицию для отрисовки линии соответвенно относительно конкретных результатов
+		var minLength = _pathResults.Find(p => _pathResults.TrueForAll(pp => p.PathLength <= pp.PathLength));
+		var maxLength = _pathResults.Find(p => _pathResults.TrueForAll(pp => p.PathLength >= pp.PathLength));
+		var damageDelta = maxDamage.DamageSum - minDamage.DamageSum;
+		var pathLengthDelta = Mathf.Round(maxLength.PathLength - minLength.PathLength);
 
-        float xStep = (XSize - XSize * 0.1f) / _pathResults.Count;
-        float yStep = (YSize - YSize * 0.1f) / _pathResults.Count;
-        float zStep = (ZSize - ZSize * 0.1f) / _pathResults.Count;
-        //switch (mode)
-        //{
-        //    case AnalyseMode.DamageRatioValidating:
-        //        xStep = (XSize - XSize * 0.1f) / _pathResults.Count;
-        //        break;
-        //    case AnalyseMode.HeuristicDistanceValidating:
-        //        break;
-        //}
-        //XLine.positionCount = 2;
-        //XLine.SetPositions(new Vector3[] { Zero.position, Zero.position + Vector3.right * XSize });
-        //XLine.startColor = XColor;
-        //XLine.endColor = XColor;
-        //XLine.material = new Material(Shader.Find("Sprites/Default"));
-        //XLine.widthMultiplier = 0.2f;
+		float xStep = (XSize - XSize * 0.1f) / _pathResults.Count; //ратио
+		float yStep = damageDelta == 0 ? 0 : (YSize - YSize * 0.1f) / damageDelta;
+		float zStep = pathLengthDelta == 0 ? 0 : (ZSize - ZSize * 0.1f) / pathLengthDelta;
+		//switch (mode)
+		//{
+		//    case AnalyseMode.DamageRatioValidating:
+		//        xStep = (XSize - XSize * 0.1f) / _pathResults.Count;
+		//        break;
+		//    case AnalyseMode.HeuristicDistanceValidating:
+		//        break;
+		//}
+		//XLine.positionCount = 2;
+		//XLine.SetPositions(new Vector3[] { Zero.position, Zero.position + Vector3.right * XSize });
+		//XLine.startColor = XColor;
+		//XLine.endColor = XColor;
+		//XLine.material = new Material(Shader.Find("Sprites/Default"));
+		//XLine.widthMultiplier = 0.2f;
 
-        //YLine.positionCount = 2;
-        //YLine.SetPositions(new Vector3[] { Zero.position, Zero.position + Vector3.up * YSize });
-        //YLine.startColor = YColor;
-        //YLine.endColor = YColor;
-        //YLine.material = new Material(Shader.Find("Sprites/Default"));
-        //YLine.widthMultiplier = 0.2f;
+		//YLine.positionCount = 2;
+		//YLine.SetPositions(new Vector3[] { Zero.position, Zero.position + Vector3.up * YSize });
+		//YLine.startColor = YColor;
+		//YLine.endColor = YColor;
+		//YLine.material = new Material(Shader.Find("Sprites/Default"));
+		//YLine.widthMultiplier = 0.2f;
 
-        //ZLine.positionCount = 2;
-        //ZLine.SetPositions(new Vector3[] { Zero.position, Zero.position + Vector3.forward * ZSize });
-        //ZLine.startColor = ZColor;
-        //ZLine.endColor = ZColor;
-        //ZLine.material = new Material(Shader.Find("Sprites/Default"));
-        //ZLine.widthMultiplier = 0.2f;
+		//ZLine.positionCount = 2;
+		//ZLine.SetPositions(new Vector3[] { Zero.position, Zero.position + Vector3.forward * ZSize });
+		//ZLine.startColor = ZColor;
+		//ZLine.endColor = ZColor;
+		//ZLine.material = new Material(Shader.Find("Sprites/Default"));
+		//ZLine.widthMultiplier = 0.2f;
 
-        Debug.DrawLine(Zero.position, Zero.position + Vector3.right * XSize, XColor);
+		Debug.DrawLine(Zero.position, Zero.position + Vector3.right * XSize, XColor);
         Debug.DrawLine(Zero.position, Zero.position + Vector3.forward * YSize, YColor);
         Debug.DrawLine(Zero.position, Zero.position + Vector3.up * ZSize, ZColor);
 
@@ -166,10 +175,10 @@ public class AStarAnalyser : MonoBehaviour
         for (int i = 0; i < _pathResults.Count; i++)
         {
             var r = _pathResults[i];
-            linePoints[i] = Zero.position + new Vector3(xStep * i, yStep * i, zStep * i);
+            linePoints[i] = Zero.position + new Vector3(xStep * i, yStep * (r.DamageSum - minDamage.DamageSum), zStep * (r.PathLength - minLength.PathLength));
             if (r.Path.Find(n => n.DamageValueFromStart >= Agent.CurrentHP) != null)
             {
-                _instantiatedDrawers.Add(Instantiate(DeathPathPrefab, linePoints[i], Quaternion.identity));
+                _instantiatedDrawers.Add(ReusableLocalPool.Instance.Instantiate(Path.Combine("Prefabs", DeathPathPrefab.name), linePoints[i], Quaternion.identity));
             }
         }
 
