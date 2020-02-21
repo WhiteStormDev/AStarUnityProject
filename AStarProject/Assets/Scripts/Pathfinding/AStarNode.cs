@@ -1,21 +1,23 @@
-﻿using System.Collections;
-using System.Collections.Generic;
-using System.Drawing;
+﻿using System.Drawing;
+using Pathfinding.Base;
 using UnityEngine;
 
-public class AStarNode
+namespace Pathfinding
 {
-	public Point GridPosition;
-    public Vector2 Center;
-    public bool Walkable { get; set; }
-    public float DamageValue { get; set; }
-    public bool Damaging => DamageValue > 0;
-
-    public AStarNode() { }
-    public AStarNode(Vector2 center, bool walkable, float damageValue)
+    public class AStarNode
     {
-        DamageValue = damageValue;
-        Center = center;
-        Walkable = walkable;
+        public Point GridPosition;
+        public Vector2 Center;
+        public bool Walkable { get; set; }
+        public float DamageValue { get; set; }
+        public bool Damaging => DamageValue > 0;
+
+        public AStarNode() { }
+        public AStarNode(Vector2 center, bool walkable, float damageValue)
+        {
+            DamageValue = damageValue;
+            Center = center;
+            Walkable = walkable;
+        }
     }
 }
