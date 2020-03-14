@@ -6309,7 +6309,8 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   DamageDetectionMode: 1
   DamageInfluenceRatio: 0.5
-  AverageDamage: 0
+  AverageDamage: 30
+  ClampedAverage: 0
   HeuristicMultiplier: 1
   NodeSize: 1
   ScanBounds:
