@@ -1,7 +1,7 @@
 ﻿using System;
 using UnityEngine;
 
-namespace Assets.Scripts.Base
+namespace Base
 {
     public class DontDestroySingletonAttribute : Attribute
     {
@@ -27,11 +27,7 @@ namespace Assets.Scripts.Base
                         var gameObject = new GameObject(typeof(T).Name);
                         _instance = gameObject.AddComponent<T>();
 
-                        var dontDestroyAttribute =
-                            Attribute.GetCustomAttribute(typeof(T), typeof(DontDestroySingletonAttribute)) as
-                                DontDestroySingletonAttribute;
-
-                        if (dontDestroyAttribute != null)
+                        if (Attribute.GetCustomAttribute(typeof(T), typeof(DontDestroySingletonAttribute)) is DontDestroySingletonAttribute dontDestroyAttribute)
                         {
                             DontDestroyOnLoad(_instance);
                         }

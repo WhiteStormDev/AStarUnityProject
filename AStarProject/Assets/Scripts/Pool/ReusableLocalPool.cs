@@ -1,17 +1,16 @@
-﻿using Assets.Scripts.Base;
+﻿using System.Collections.Generic;
+using Base;
 using DG.Tweening;
-using System.Collections;
-using System.Collections.Generic;
 using UnityEngine;
 
-namespace Assets.Scripts.Base.Pool
+namespace Pool
 {
 	public class ReusableLocalPool : MonoSingleton<ReusableLocalPool>
 	{
-		public readonly Dictionary<string, GameObject> ResourceCache = new Dictionary<string, GameObject>();
-		public readonly Dictionary<string, Stack<GameObject>> DisabledSceneObjectsCache = new Dictionary<string, Stack<GameObject>>();
+		private readonly Dictionary<string, GameObject> ResourceCache = new Dictionary<string, GameObject>();
+		private readonly Dictionary<string, Stack<GameObject>> DisabledSceneObjectsCache = new Dictionary<string, Stack<GameObject>>();
 
-		public static int OneTypeGameObjectsMaxCount = 128;
+		private static int OneTypeGameObjectsMaxCount = 128;
 		/// <summary>Returns an inactive instance of a networked GameObject, to be used by PUN.</summary>
 		/// <param name="prefabId">String identifier for the networked object.</param>
 		/// <param name="position">Location of the new object.</param>

@@ -1,8 +1,9 @@
 ﻿using System.Collections;
 using System.Collections.Generic;
+using Pathfinding.Modifiers;
 using UnityEngine;
 
-public class RadioactiveZone : MonoBehaviour, IDamager
+public class RadioactiveZone : MonoBehaviour, IAStarDamager
 {
 	[SerializeField] private float _damage;
     public float Damage { get => _damage; }
