@@ -1,5 +1,4 @@
-﻿using Pathfinding.Base;
-using UnityEngine;
+﻿using UnityEngine;
 
 namespace Pathfinding
 {
@@ -7,7 +6,7 @@ namespace Pathfinding
 	{
 		public DamageDetectionMode DamageDetectionMode;
 
-		public Point Position { get; set; }
+		public Vector2Int Position { get; set; }
 
 		public int PathLengthFromStart { get; set; }
 	

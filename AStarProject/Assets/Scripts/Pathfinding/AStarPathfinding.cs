@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using Pathfinding.Base;
 using UnityEditor;
 using UnityEngine;
 
@@ -100,7 +99,7 @@ namespace Pathfinding
                 for (float y = _clampedScanBounds.min.y; y < _clampedScanBounds.max.y - NodeSize / 2; y += NodeSize)
                 {
                     var center = new Vector2(x + NodeSize / 2, y + NodeSize / 2);
-                    var node = CreateNode(center, new Point(i, j));
+                    var node = CreateNode(center, new Vector2Int(i, j));
                     if (node.Damaging)
                     {
                         damagersCount++;
@@ -116,7 +115,7 @@ namespace Pathfinding
             AverageDamage = damagersCount > 0 ? sumDamage / damagersCount : 0;
         }
 
-        private AStarNode CreateNode(Vector2 center, Point gridPosition)
+        private AStarNode CreateNode(Vector2 center, Vector2Int gridPosition)
         {
             AStarNode node = new AStarNode();
             node.Center = center;
@@ -175,7 +174,7 @@ namespace Pathfinding
             Debug.Log("PATH DAMAGE: " + GetPathDamage(LastPath) + "\n" + "PATH LENGTH: " + LastPath.Count);
         
             List<AStarNode> result = new List<AStarNode>(LastPath.Count);
-            LastPath.ForEach(pn => result.Add(GetNodeByIndex(pn.Position.X, pn.Position.Y)));
+            LastPath.ForEach(pn => result.Add(GetNodeByIndex(pn.Position.x, pn.Position.y)));
             return result;
         }
 
@@ -237,7 +236,7 @@ namespace Pathfinding
             return null;
         }
 
-        private float GetAverageDamage(Point from , Point to)
+        private float GetAverageDamage(Vector2Int from, Vector2Int to)
         {
             if (_grid == null)
                 return 0;
@@ -245,7 +244,7 @@ namespace Pathfinding
             var xLength = _grid.GetLength(0);
             var yLength = _grid.GetLength(1);
 
-            if (from.X >= xLength || from.Y >= yLength || to.X >= xLength || to.Y >= yLength)
+            if (from.x >= xLength || from.y >= yLength || to.x >= xLength || to.y >= yLength)
                 return 0;
 
             var count = 0;
@@ -263,37 +262,37 @@ namespace Pathfinding
             return sum / count;
         }
 
-        private float GetHeuristicDamage(Point from, Point to) => DamageDetectionMode == DamageDetectionMode.Average ? GetAverageDamage(from, to) : 0;
+        private float GetHeuristicDamage(Vector2Int from, Vector2Int to) => DamageDetectionMode == DamageDetectionMode.Average ? GetAverageDamage(from, to) : 0;
     
         private int GetDistanceBetweenNeighbours() => 1;
 
-        private int GetHeuristicPathLength(Point from, Point to) => HeuristicMultiplier * (Math.Abs(from.X - to.X) + Math.Abs(from.Y - to.Y));
+        private int GetHeuristicPathLength(Vector2Int from, Vector2Int to) => HeuristicMultiplier * (Math.Abs(from.x - to.x) + Math.Abs(from.y - to.y));
 
-        private List<AStarPathNode> GetNeighbours(AStarPathNode pathNode, Point goal, AStarAgent agent)
+        private List<AStarPathNode> GetNeighbours(AStarPathNode pathNode, Vector2Int goal, AStarAgent agent)
         {
             var result = new List<AStarPathNode>();
 
             // Соседними точками являются соседние по стороне клетки.
-            Point[] neighbourPoints = new Point[4];
-            neighbourPoints[0] = new Point(pathNode.Position.X + 1, pathNode.Position.Y);
-            neighbourPoints[1] = new Point(pathNode.Position.X - 1, pathNode.Position.Y);
-            neighbourPoints[2] = new Point(pathNode.Position.X, pathNode.Position.Y + 1);
-            neighbourPoints[3] = new Point(pathNode.Position.X, pathNode.Position.Y - 1);
+            Vector2Int[] neighbourPoints = new Vector2Int[4];
+            neighbourPoints[0] = new Vector2Int(pathNode.Position.x + 1, pathNode.Position.y);
+            neighbourPoints[1] = new Vector2Int(pathNode.Position.x - 1, pathNode.Position.y);
+            neighbourPoints[2] = new Vector2Int(pathNode.Position.x, pathNode.Position.y + 1);
+            neighbourPoints[3] = new Vector2Int(pathNode.Position.x, pathNode.Position.y - 1);
 
             foreach (var point in neighbourPoints)
             {
                 // Проверяем, что не вышли за границы карты.
-                if (point.X < 0 || point.X >= _grid.GetLength(0))
+                if (point.x < 0 || point.x >= _grid.GetLength(0))
                     continue;
-                if (point.Y < 0 || point.Y >= _grid.GetLength(1))
+                if (point.y < 0 || point.y >= _grid.GetLength(1))
                     continue;
                 // Проверяем, что по клетке можно ходить.
-                if (_grid[point.X, point.Y] != null && !_grid[point.X, point.Y].Walkable)
+                if (_grid[point.x, point.y] != null && !_grid[point.x, point.y].Walkable)
                     continue;
-                var damageFromStart = pathNode.DamageValueFromStart + _grid[point.X, point.Y].DamageValue;
+                var damageFromStart = pathNode.DamageValueFromStart + _grid[point.x, point.y].DamageValue;
                 if (DamageDetectionMode == DamageDetectionMode.LethalCheck)
                 {
-                    var node = _grid[point.X, point.Y];
+                    var node = _grid[point.x, point.y];
                     if (node.DamageValue >= agent.CurrentHP)
                         continue;
                 }
@@ -311,7 +310,7 @@ namespace Pathfinding
                     PathLengthFromStart = pathNode.PathLengthFromStart +
                                           GetDistanceBetweenNeighbours(),
                     HeuristicEstimatePathLength = GetHeuristicPathLength(point, goal),
-                    DamageValueFromStart = pathNode.DamageValueFromStart + _grid[point.X, point.Y].DamageValue,
+                    DamageValueFromStart = pathNode.DamageValueFromStart + _grid[point.x, point.y].DamageValue,
                     HeruisticEstimateDamageValue = GetHeuristicDamage(point, goal),
                     DamageRatio = DamageDetectionMode == DamageDetectionMode.Average ? DamageInfluenceRatio : 0
                 };
@@ -464,18 +463,18 @@ namespace Pathfinding
 
             _closedSet?.ForEach(cs =>
             {
-                if (cs.Position.X < _grid.GetLength(0) && cs.Position.Y < _grid.GetLength(1))
+                if (cs.Position.x < _grid.GetLength(0) && cs.Position.y < _grid.GetLength(1))
                 {
-                    var node = _grid[cs.Position.X, cs.Position.Y];
+                    var node = _grid[cs.Position.x, cs.Position.y];
                     Gizmos.DrawSphere(node.Center, NodeSize / 4);
                 } 
             });
             Gizmos.color = new UnityEngine.Color(UnityEngine.Color.green.r, UnityEngine.Color.green.g, UnityEngine.Color.green.b, 0.8f);
             _openSet?.ForEach(os =>
             {
-                if (os.Position.X < _grid.GetLength(0) && os.Position.Y < _grid.GetLength(1))
+                if (os.Position.x < _grid.GetLength(0) && os.Position.y < _grid.GetLength(1))
                 {
-                    var node = _grid[os.Position.X, os.Position.Y];
+                    var node = _grid[os.Position.x, os.Position.y];
                     Gizmos.DrawSphere(node.Center, NodeSize / 4);
                 }
             });

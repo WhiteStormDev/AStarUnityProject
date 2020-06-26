@@ -1,12 +1,10 @@
-﻿using System.Drawing;
-using Pathfinding.Base;
-using UnityEngine;
+﻿using UnityEngine;
 
 namespace Pathfinding
 {
     public class AStarNode
     {
-        public Point GridPosition;
+        public Vector2Int GridPosition;
         public Vector2 Center;
         public bool Walkable { get; set; }
         public float DamageValue { get; set; }
