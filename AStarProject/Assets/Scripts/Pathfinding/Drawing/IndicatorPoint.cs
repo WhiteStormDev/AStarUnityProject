@@ -1,4 +1,4 @@
-﻿using Assets.Scripts.Base.Pool;
+﻿using Pool;
 using UnityEngine;
 
 namespace Pathfinding.Drawing

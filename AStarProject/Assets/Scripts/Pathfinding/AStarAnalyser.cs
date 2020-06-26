@@ -1,7 +1,5 @@
-﻿using System.Collections;
-using System.Collections.Generic;
-using System.IO;
-using Assets.Scripts.Base.Pool;
+﻿using System.Collections.Generic;
+using Pool;
 using UnityEngine;
 
 namespace Pathfinding
@@ -180,7 +178,7 @@ namespace Pathfinding
 				linePoints[i] = Zero.position + new Vector3(xStep * i, yStep * (r.DamageSum - minDamage.DamageSum), zStep * (r.PathLength - minLength.PathLength));
 				if (r.Path.Find(n => n.DamageValueFromStart >= Agent.CurrentHP) != null)
 				{
-					_instantiatedDrawers.Add(ReusableLocalPool.Instance.Instantiate(Path.Combine("Prefabs", DeathPathPrefab.name), linePoints[i], Quaternion.identity));
+					_instantiatedDrawers.Add(ReusableLocalPool.Instance.Instantiate(System.IO.Path.Combine("Prefabs", DeathPathPrefab.name), linePoints[i], Quaternion.identity));
 				}
 			}
 
