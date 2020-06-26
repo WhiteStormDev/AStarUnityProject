@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using Pathfinding.Modifiers;
 using UnityEditor;
 using UnityEngine;
 
@@ -128,7 +129,7 @@ namespace Pathfinding
                     var damagerCollider = Physics2D.OverlapCircle(center, NodeSize / 2.2f, DamagingEnvironmentLayerMask);
                     if (damagerCollider != null)
                     {
-                        var damager = damagerCollider.GetComponent<IDamager>();
+                        var damager = damagerCollider.GetComponent<IAStarDamager>();
                         if (damager != null)
                             node.DamageValue = damager.Damage;
                     }
@@ -139,7 +140,7 @@ namespace Pathfinding
                     var pDamagerCollider = Physics2D.OverlapCircle(center, NodeSize / 10f, DamagingEnvironmentLayerMask);
                     if (pDamagerCollider != null)
                     {
-                        var damager = pDamagerCollider.GetComponent<IDamager>();
+                        var damager = pDamagerCollider.GetComponent<IAStarDamager>();
                         if (damager != null)
                             node.DamageValue = damager.Damage;
                     }
