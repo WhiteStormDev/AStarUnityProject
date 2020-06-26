@@ -1,8 +1,9 @@
 ﻿using System.Collections.Generic;
+using Pathfinding.Base;
 using Pool;
 using UnityEngine;
 
-namespace Pathfinding
+namespace Pathfinding.MonoBehaviours
 {
 	public enum AnalyseMode
 	{

@@ -1,6 +1,6 @@
 ﻿using UnityEngine;
 
-namespace Pathfinding
+namespace Pathfinding.Base
 {
     public class AStarNode
     {

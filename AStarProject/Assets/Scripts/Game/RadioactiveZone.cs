@@ -1,6 +1,6 @@
 ﻿using System.Collections;
 using System.Collections.Generic;
-using Pathfinding.Modifiers;
+using Pathfinding.Interfaces;
 using UnityEngine;
 
 public class RadioactiveZone : MonoBehaviour, IAStarDamager

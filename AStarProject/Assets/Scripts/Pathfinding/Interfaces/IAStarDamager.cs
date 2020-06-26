@@ -1,4 +1,4 @@
-﻿namespace Pathfinding.Modifiers
+﻿namespace Pathfinding.Interfaces
 {
     public interface IAStarDamager
     {

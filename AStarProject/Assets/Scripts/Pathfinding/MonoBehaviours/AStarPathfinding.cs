@@ -1,26 +1,14 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using Pathfinding.Modifiers;
-using UnityEditor;
+using Pathfinding.Base;
+using Pathfinding.Enums;
+using Pathfinding.Interfaces;
+using Pathfinding.MonoBehaviours;
 using UnityEngine;
 
-namespace Pathfinding
+namespace Pathfinding.MonoBehaviours
 {
-    public enum DamageDetectionMode
-    {
-        None,
-        Average,
-        LethalCheck,
-        PredictedLethalCheck,
-        SelfPreservationInstinct
-    }
-
-    public enum CheckingMode
-    {
-        Circle,
-        Point
-    }
     public class AStarPathfinding : MonoBehaviour
     {
         [Header("Find Stategy")]
@@ -40,22 +28,21 @@ namespace Pathfinding
         public LayerMask ObstaclesLayerMask;
         public LayerMask DamagingEnvironmentLayerMask;
 
-        public List<AStarPathNode> LastPath { get; private set; }
-
-        private AStarNode[,] _grid;
-        private Bounds _clampedScanBounds;
-
         public static AStarPathfinding Instance { get; protected set; }
-
+        public List<AStarPathNode> LastPath { get; private set; }
+        public AStarNode[,] Grid { get; protected set; }
+        public Bounds ClampedScanBounds => _clampedScanBounds;
+        
         //public AStarNode GetAStarNode(Point gridPoint) => _grid.GetLength(0) <= gridPoint.X || _grid.GetLength(1) <= gridPoint.Y ? null : _grid[gridPoint.X, gridPoint.Y];
-        private List<AStarPathNode> _closedSet;
-        private List<AStarPathNode> _openSet;
+        public List<AStarPathNode> ClosedSet { get; protected set; }
+        public List<AStarPathNode> OpenSet { get; protected set; }
 
-        public int ClosetSetCount => _closedSet == null ? 0 : _closedSet.Count;
-        public int OpenSetCount => _openSet == null ? 0 : _openSet.Count;
+        public int ClosetSetCount => ClosedSet == null ? 0 : ClosedSet.Count;
+        public int OpenSetCount => OpenSet == null ? 0 : OpenSet.Count;
 
         private float _predictedAgentHP;
-
+        private Bounds _clampedScanBounds;
+        
         private void Awake()
         {
             Instance = this;
@@ -89,7 +76,7 @@ namespace Pathfinding
         public void Scan()
         {
             SetClampedScanBounds(ScanBounds);
-            _grid = new AStarNode[(int)(_clampedScanBounds.extents.x / NodeSize) * 2, (int)(_clampedScanBounds.extents.y / NodeSize) * 2];
+            Grid = new AStarNode[(int)(_clampedScanBounds.extents.x / NodeSize) * 2, (int)(_clampedScanBounds.extents.y / NodeSize) * 2];
             var damagersCount = 0;
             var sumDamage = 0f;
 
@@ -106,7 +93,7 @@ namespace Pathfinding
                         damagersCount++;
                         sumDamage += node.DamageValue;
                     }
-                    _grid[i, j] = node;
+                    Grid[i, j] = node;
                     j++;
                 }
                 i++;
@@ -183,8 +170,8 @@ namespace Pathfinding
         {
             Debug.Log("Finding path from " + start.GridPosition + " to " + goal.GridPosition);
             // Шаг 1.
-            _closedSet = new List<AStarPathNode>();
-            _openSet = new List<AStarPathNode>();
+            ClosedSet = new List<AStarPathNode>();
+            OpenSet = new List<AStarPathNode>();
             // Шаг 2.
             AStarPathNode startNode = new AStarPathNode()
             {
@@ -196,33 +183,33 @@ namespace Pathfinding
                 HeruisticEstimateDamageValue = GetHeuristicDamage(start.GridPosition, goal.GridPosition),
                 DamageRatio = DamageDetectionMode == DamageDetectionMode.Average ? DamageInfluenceRatio : 0
             };
-            _openSet.Add(startNode);
+            OpenSet.Add(startNode);
         
-            while (_openSet.Count > 0)
+            while (OpenSet.Count > 0)
             {
                 // Шаг 3.
-                var currentNode = _openSet.OrderBy(node =>
+                var currentNode = OpenSet.OrderBy(node =>
                     node.F).First();
                 // Шаг 4.
                 if (currentNode.Position == goal.GridPosition)
                     //return openSet;
                     return GetPathForNode(currentNode);
                 // Шаг 5.
-                _openSet.Remove(currentNode);
-                _closedSet.Add(currentNode);
+                OpenSet.Remove(currentNode);
+                ClosedSet.Add(currentNode);
                 // Шаг 6.
                 foreach (var neighbourNode in GetNeighbours(currentNode, goal.GridPosition, agent))
                 {
                     // Шаг 7.
-                    if (_closedSet.Exists(node => node.Position == neighbourNode.Position))
+                    if (ClosedSet.Exists(node => node.Position == neighbourNode.Position))
                         continue;
 
-                    var openNode = _openSet.FirstOrDefault(node =>
+                    var openNode = OpenSet.FirstOrDefault(node =>
                         node.Position == neighbourNode.Position);
                     // Шаг 8.
                     if (openNode == null)
                     {
-                        _openSet.Add(neighbourNode);   
+                        OpenSet.Add(neighbourNode);   
                     }  
                     else
                     if (openNode.PathLengthFromStart > neighbourNode.PathLengthFromStart)
@@ -239,11 +226,11 @@ namespace Pathfinding
 
         private float GetAverageDamage(Vector2Int from, Vector2Int to)
         {
-            if (_grid == null)
+            if (Grid == null)
                 return 0;
 
-            var xLength = _grid.GetLength(0);
-            var yLength = _grid.GetLength(1);
+            var xLength = Grid.GetLength(0);
+            var yLength = Grid.GetLength(1);
 
             if (from.x >= xLength || from.y >= yLength || to.x >= xLength || to.y >= yLength)
                 return 0;
@@ -254,7 +241,7 @@ namespace Pathfinding
             {
                 for (int j = 0; j < yLength; j++)
                 {
-                    var node = _grid[i, j];
+                    var node = Grid[i, j];
                     sum += node.DamageValue;
                     count++;
                 }
@@ -283,17 +270,17 @@ namespace Pathfinding
             foreach (var point in neighbourPoints)
             {
                 // Проверяем, что не вышли за границы карты.
-                if (point.x < 0 || point.x >= _grid.GetLength(0))
+                if (point.x < 0 || point.x >= Grid.GetLength(0))
                     continue;
-                if (point.y < 0 || point.y >= _grid.GetLength(1))
+                if (point.y < 0 || point.y >= Grid.GetLength(1))
                     continue;
                 // Проверяем, что по клетке можно ходить.
-                if (_grid[point.x, point.y] != null && !_grid[point.x, point.y].Walkable)
+                if (Grid[point.x, point.y] != null && !Grid[point.x, point.y].Walkable)
                     continue;
-                var damageFromStart = pathNode.DamageValueFromStart + _grid[point.x, point.y].DamageValue;
+                var damageFromStart = pathNode.DamageValueFromStart + Grid[point.x, point.y].DamageValue;
                 if (DamageDetectionMode == DamageDetectionMode.LethalCheck)
                 {
-                    var node = _grid[point.x, point.y];
+                    var node = Grid[point.x, point.y];
                     if (node.DamageValue >= agent.CurrentHP)
                         continue;
                 }
@@ -311,7 +298,7 @@ namespace Pathfinding
                     PathLengthFromStart = pathNode.PathLengthFromStart +
                                           GetDistanceBetweenNeighbours(),
                     HeuristicEstimatePathLength = GetHeuristicPathLength(point, goal),
-                    DamageValueFromStart = pathNode.DamageValueFromStart + _grid[point.x, point.y].DamageValue,
+                    DamageValueFromStart = pathNode.DamageValueFromStart + Grid[point.x, point.y].DamageValue,
                     HeruisticEstimateDamageValue = GetHeuristicDamage(point, goal),
                     DamageRatio = DamageDetectionMode == DamageDetectionMode.Average ? DamageInfluenceRatio : 0
                 };
@@ -363,19 +350,20 @@ namespace Pathfinding
 
         private AStarNode GetNodeByIndex(int xIndex, int yIndex)
         {
-            if (_grid == null)
+            if (Grid == null)
             {
                 Debug.LogWarning("NULL grid");
                 return null;
             }
-            if (xIndex >= _grid.GetLength(0) || yIndex >= _grid.GetLength(1))
+            if (xIndex >= Grid.GetLength(0) || yIndex >= Grid.GetLength(1))
             {
                 Debug.LogWarning("wrong grid index");
                 return null;
             }
 
-            return _grid[xIndex, yIndex];
+            return Grid[xIndex, yIndex];
         }
+        
 #if UNITY_EDITOR
         [ContextMenu("Scan")]
         private void Test()
@@ -385,18 +373,18 @@ namespace Pathfinding
 
         private void DrawGrid()
         {
-            if (_grid == null)
+            if (Grid == null)
                 return;
 
             var damagers = new List<AStarNode>();
             var walls = new List<AStarNode>();
             var walkables = new List<AStarNode>();
 
-            for (int i = 0; i < _grid.GetLength(0); i++)
+            for (int i = 0; i < Grid.GetLength(0); i++)
             {
-                for (int j = 0; j < _grid.GetLength(1); j++)
+                for (int j = 0; j < Grid.GetLength(1); j++)
                 {
-                    var node = _grid[i, j];
+                    var node = Grid[i, j];
                     if (node == null)
                         break;
 
@@ -442,52 +430,30 @@ namespace Pathfinding
             Gizmos.DrawLine(_clampedScanBounds.max, new Vector3(_clampedScanBounds.max.x, _clampedScanBounds.min.y));
 
             DrawGrid();
-            //if (NodeSize <= 0)
-            //    return;
-
-            //Gizmos.color = Color.cyan;
-
-            //for (float x = _clampedScanBounds.min.x + NodeSize;  x <= _clampedScanBounds.max.x; x += NodeSize)
-            //{
-            //    Gizmos.DrawLine(new Vector3(x, _clampedScanBounds.max.y), new Vector3(x, _clampedScanBounds.min.y));
-            //}
-
-            //for (float y = _clampedScanBounds.max.y + NodeSize; y <= _clampedScanBounds.min.y; y += NodeSize)
-            //{
-            //    Gizmos.DrawLine(new Vector3(_clampedScanBounds.min.x, y), new Vector3(_clampedScanBounds.max.x, y));
-            //}
         }
 
         private void OnDrawGizmos()
         {
             Gizmos.color = new UnityEngine.Color(UnityEngine.Color.magenta.r, UnityEngine.Color.magenta.g, UnityEngine.Color.magenta.b, 0.8f);
 
-            _closedSet?.ForEach(cs =>
+            ClosedSet?.ForEach(cs =>
             {
-                if (cs.Position.x < _grid.GetLength(0) && cs.Position.y < _grid.GetLength(1))
+                if (cs.Position.x < Grid.GetLength(0) && cs.Position.y < Grid.GetLength(1))
                 {
-                    var node = _grid[cs.Position.x, cs.Position.y];
+                    var node = Grid[cs.Position.x, cs.Position.y];
                     Gizmos.DrawSphere(node.Center, NodeSize / 4);
                 } 
             });
             Gizmos.color = new UnityEngine.Color(UnityEngine.Color.green.r, UnityEngine.Color.green.g, UnityEngine.Color.green.b, 0.8f);
-            _openSet?.ForEach(os =>
+            OpenSet?.ForEach(os =>
             {
-                if (os.Position.x < _grid.GetLength(0) && os.Position.y < _grid.GetLength(1))
+                if (os.Position.x < Grid.GetLength(0) && os.Position.y < Grid.GetLength(1))
                 {
-                    var node = _grid[os.Position.x, os.Position.y];
+                    var node = Grid[os.Position.x, os.Position.y];
                     Gizmos.DrawSphere(node.Center, NodeSize / 4);
                 }
             });
         }
 #endif
     }
-
-#if UNITY_EDITOR
-    [CustomEditor(typeof(AStarPathfinding)), CanEditMultipleObjects]
-    public class AStarPathfindingEditor : Editor
-    {
-	
-    }
-#endif
 }

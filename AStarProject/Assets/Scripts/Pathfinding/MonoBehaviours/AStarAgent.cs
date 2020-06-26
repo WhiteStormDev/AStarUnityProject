@@ -1,9 +1,10 @@
 ﻿using System.Collections.Generic;
 using DG.Tweening;
+using Pathfinding.Base;
 using UnityEditor;
 using UnityEngine;
 
-namespace Pathfinding
+namespace Pathfinding.MonoBehaviours
 {
 	public class AStarAgent : MonoBehaviour
 	{
@@ -27,9 +28,7 @@ namespace Pathfinding
 		private int _currentNodeIndex;
 
 		public float CurrentHP => _unit.CurrentHP;
-
-		//private Vector2? _destinationPosition;
-
+		
 		private void Update()
 		{
 			if (!IsActive)

@@ -988,11 +988,11 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 968e1c0d9b1b44f978971e5276365b68, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  IsActive: 0
+  IsActive: 1
   DestinationTarget: {fileID: 514287831}
   PathUpdateTimer: 1
   MinimumDistance: 27
-  CanMove: 0
+  CanMove: 1
   OneNodeMoveDuration: 0.1
   NodeStopTimer: 0.3
   _unit: {fileID: 412935107}
@@ -6310,7 +6310,6 @@ MonoBehaviour:
   DamageDetectionMode: 1
   DamageInfluenceRatio: 0.5
   AverageDamage: 30
-  ClampedAverage: 0
   HeuristicMultiplier: 1
   NodeSize: 1
   ScanBounds:

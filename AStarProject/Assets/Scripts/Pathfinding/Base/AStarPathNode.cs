@@ -1,6 +1,8 @@
-﻿using UnityEngine;
+﻿using Pathfinding.Enums;
+using Pathfinding.MonoBehaviours;
+using UnityEngine;
 
-namespace Pathfinding
+namespace Pathfinding.Base
 {
 	public class AStarPathNode
 	{
