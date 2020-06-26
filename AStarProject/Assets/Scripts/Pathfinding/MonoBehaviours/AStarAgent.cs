@@ -66,9 +66,7 @@ namespace Pathfinding.MonoBehaviours
 				return;
 			MoveToNode(_path[_currentNodeIndex]);
 		}
-
-    
-
+		
 		private void MoveToNode(AStarNode node)
 		{
 			if (node == null)
@@ -77,6 +75,7 @@ namespace Pathfinding.MonoBehaviours
 			transform.DOMove(node.Center, OneNodeMoveDuration);
 			_currentNodeStopTimer = NodeStopTimer;
 		}
+		
 		/// <summary>
 		/// return calculated path
 		/// </summary>

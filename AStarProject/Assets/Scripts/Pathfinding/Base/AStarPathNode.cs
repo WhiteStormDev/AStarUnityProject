@@ -1,5 +1,4 @@
 ﻿using Pathfinding.Enums;
-using Pathfinding.MonoBehaviours;
 using UnityEngine;
 
 namespace Pathfinding.Base
@@ -25,7 +24,5 @@ namespace Pathfinding.Base
 		private float _damageRatio;
 		public float DamageRatio { get => _damageRatio; set => _damageRatio = Mathf.Clamp(value, 0, 1); }
 		public float F => EstimateFullPathLength + DamageRatio * EstimateFullDamageValue;
-
-		//public AStarNode GridNode { get; set; }
 	}
 }

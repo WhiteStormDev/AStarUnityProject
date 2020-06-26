@@ -73,8 +73,6 @@ namespace Pathfinding.MonoBehaviours
 
 		private void Analyse(AnalyseMode? analyseMode = null)
 		{
-        
-
 			var mode = analyseMode != null ? (AnalyseMode)analyseMode : AnalyseMode;
 			_pathResults = new List<PathResult>();
 			_damageStep = 0;
