@@ -4,6 +4,7 @@ using System.Linq;
 using Pathfinding.Base;
 using Pathfinding.Enums;
 using Pathfinding.Interfaces;
+using Pathfinding.MonoBehaviours.Agent;
 using UnityEngine;
 
 namespace Pathfinding.MonoBehaviours

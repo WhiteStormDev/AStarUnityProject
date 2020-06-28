@@ -1,10 +1,11 @@
 ﻿using System.Collections.Generic;
 using DG.Tweening;
+using Game.Units.Controllers;
 using Pathfinding.Base;
 using UnityEditor;
 using UnityEngine;
 
-namespace Pathfinding.MonoBehaviours
+namespace Pathfinding.MonoBehaviours.Agent
 {
 	public class AStarAgent : MonoBehaviour
 	{

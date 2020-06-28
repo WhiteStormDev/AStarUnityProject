@@ -1,5 +1,6 @@
 ﻿using System.Collections.Generic;
 using Pathfinding.Base;
+using Pathfinding.MonoBehaviours.Agent;
 using Pool;
 using UnityEngine;
 
