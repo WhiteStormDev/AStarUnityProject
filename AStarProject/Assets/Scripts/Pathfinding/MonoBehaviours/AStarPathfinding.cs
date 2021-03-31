@@ -28,19 +28,16 @@ namespace Pathfinding.MonoBehaviours
         public LayerMask ObstaclesLayerMask;
         public LayerMask DamagingEnvironmentLayerMask;
 
-        public static AStarPathfinding Instance { get; protected set; }
+        public static AStarPathfinding Instance { get; private set; }
         public List<AStarPathNode> LastPath { get; private set; }
-        public AStarNode[,] Grid { get; protected set; }
+        public AStarNode[,] Grid { get; private set; }
+        public List<AStarPathNode> ClosedSet { get; private set; }
+        public List<AStarPathNode> OpenSet { get; private set; }
         public Bounds ClampedScanBounds => _clampedScanBounds;
-        
-        //public AStarNode GetAStarNode(Point gridPoint) => _grid.GetLength(0) <= gridPoint.X || _grid.GetLength(1) <= gridPoint.Y ? null : _grid[gridPoint.X, gridPoint.Y];
-        public List<AStarPathNode> ClosedSet { get; protected set; }
-        public List<AStarPathNode> OpenSet { get; protected set; }
+        public int ClosetSetCount => ClosedSet?.Count ?? 0;
+        public int OpenSetCount => OpenSet?.Count ?? 0;
 
-        public int ClosetSetCount => ClosedSet == null ? 0 : ClosedSet.Count;
-        public int OpenSetCount => OpenSet == null ? 0 : OpenSet.Count;
-
-        private float _predictedAgentHP;
+        private float _predictedAgentHp;
         private Bounds _clampedScanBounds;
         
         private void Awake()
@@ -53,26 +50,27 @@ namespace Pathfinding.MonoBehaviours
             SetClampedScanBounds(ScanBounds);
             Scan();
         }
-
-        private void SetClampedScanBounds(Bounds bounds)
+        
+        /// <summary>
+        /// Returns nearest node for game world position 
+        /// </summary>
+        /// <param name="position"></param>
+        /// <param name="maxCheckCount"></param>
+        /// <returns></returns>
+        public AStarNode GetNearestNode(Vector2 position, int maxCheckCount = -1)
         {
-            if (NodeSize > 0)
-            {
-                var x = bounds.extents.x - bounds.center.x;
-                var y = bounds.extents.y - bounds.center.y;
-                _clampedScanBounds.center = bounds.center + transform.position;
+            if (!_clampedScanBounds.Contains(position))
+                return null;
 
-                var clampX = x - x % NodeSize;
-                var clampY = y - y % NodeSize;
-                _clampedScanBounds.extents = new Vector3(clampX, clampY);
+            var xDeltaIndex = (int)((position.x - _clampedScanBounds.min.x) / NodeSize);
+            var yDeltaIndex = (int)((position.y - _clampedScanBounds.min.y) / NodeSize);
 
-            }
-            else
-            {
-                Debug.LogError("NodeSize must be positive and not 0");
-            }
+            return GetNodeByIndex(xDeltaIndex, yDeltaIndex);
         }
 
+        /// <summary>
+        /// Scan game field for calculating the grid
+        /// </summary>
         public void Scan()
         {
             SetClampedScanBounds(ScanBounds);
@@ -101,6 +99,119 @@ namespace Pathfinding.MonoBehaviours
             }
 
             AverageDamage = damagersCount > 0 ? sumDamage / damagersCount : 0;
+        }
+        
+        /// <summary>
+        /// Returns minimum path to goal position, apply all agent modifiers
+        /// </summary>
+        /// <param name="startPosition"></param>
+        /// <param name="goalPosition"></param>
+        /// <param name="agent"></param>
+        /// <returns></returns>
+        public List<AStarNode> GetMinimumPath(Vector2 startPosition, Vector2 goalPosition, AStarAgent agent)
+        {
+            var start = GetNearestNode(startPosition);
+            var goal = GetNearestNode(goalPosition);
+
+            if (start == null)
+            {
+                Debug.LogWarning("Can't find StartNode");
+                return null;
+            }
+
+            if (goal == null)
+            {
+                Debug.LogWarning("Can't find EndNode");
+                return null;
+            }
+
+            LastPath = FindPath(start, goal, agent);
+            if (LastPath == null)
+            {
+                Debug.LogWarning("NULL pathNodes");
+                return null;
+            }
+            Debug.Log("PATH DAMAGE: " + GetPathDamage(LastPath) + "\n" + "PATH LENGTH: " + LastPath.Count);
+        
+            agent.Modifiers.ForEach(m => m.ApplyModifier(LastPath));
+            
+            List<AStarNode> result = new List<AStarNode>(LastPath.Count);
+            LastPath.ForEach(pn => result.Add(GetNodeByIndex(pn.Position.x, pn.Position.y)));
+            return result;
+        }
+
+        private List<AStarPathNode> FindPath(AStarNode start, AStarNode goal, AStarAgent agent)
+        {
+            Debug.Log("Finding path from " + start.GridPosition + " to " + goal.GridPosition);
+        
+            ClosedSet = new List<AStarPathNode>();
+            OpenSet = new List<AStarPathNode>();
+       
+            AStarPathNode startNode = new AStarPathNode()
+            {
+                Position = start.GridPosition,
+                CameFrom = null,
+                PathLengthFromStart = 0,
+                HeuristicEstimatePathLength = GetHeuristicPathLength(start.GridPosition, goal.GridPosition),
+                DamageValueFromStart = start.DamageValue,
+                HeruisticEstimateDamageValue = GetHeuristicDamage(start.GridPosition, goal.GridPosition),
+                DamageRatio = DamageDetectionMode == DamageDetectionMode.Average ? DamageInfluenceRatio : 0
+            };
+            OpenSet.Add(startNode);
+        
+            while (OpenSet.Count > 0)
+            {
+                var currentNode = OpenSet.OrderBy(node =>
+                    node.F).First();
+                
+                if (currentNode.Position == goal.GridPosition)
+                    //return openSet;
+                    return GetPathForNode(currentNode);
+           
+                OpenSet.Remove(currentNode);
+                ClosedSet.Add(currentNode);
+              
+                foreach (var neighbourNode in GetNeighbours(currentNode, goal.GridPosition, agent))
+                {
+                    if (ClosedSet.Exists(node => node.Position == neighbourNode.Position))
+                        continue;
+
+                    var openNode = OpenSet.FirstOrDefault(node =>
+                        node.Position == neighbourNode.Position);
+                  
+                    if (openNode == null)
+                    {
+                        OpenSet.Add(neighbourNode);   
+                    }  
+                    else
+                    if (openNode.PathLengthFromStart > neighbourNode.PathLengthFromStart)
+                    {
+                        openNode.CameFrom = currentNode;
+                        openNode.PathLengthFromStart = neighbourNode.PathLengthFromStart;
+                    }
+                }
+            }
+     
+            return null;
+        }
+
+        private void SetClampedScanBounds(Bounds bounds)
+        {
+            if (NodeSize > 0)
+            {
+                var x = bounds.extents.x - bounds.center.x;
+                var y = bounds.extents.y - bounds.center.y;
+                _clampedScanBounds.center = bounds.center + transform.position;
+
+                var clampX = x - x % NodeSize;
+                var clampY = y - y % NodeSize;
+                _clampedScanBounds.extents = new Vector3(clampX, clampY);
+
+            }
+            else
+            {
+                Debug.LogError("NodeSize must be positive and not 0");
+            }
         }
 
         private AStarNode CreateNode(Vector2 center, Vector2Int gridPosition)
@@ -135,95 +246,7 @@ namespace Pathfinding.MonoBehaviours
             }
             return node;
         }
-
-        public List<AStarNode> GetMinimumPath(Vector2 startPosition, Vector2 goalPosition, AStarAgent agent)
-        {
-            var start = GetNearestNode(startPosition);
-            var goal = GetNearestNode(goalPosition);
-
-            if (start == null)
-            {
-                Debug.LogWarning("Can't find StartNode");
-                return null;
-            }
-
-            if (goal == null)
-            {
-                Debug.LogWarning("Can't find EndNode");
-                return null;
-            }
-
-            LastPath = FindPath(start, goal, agent);
-            if (LastPath == null)
-            {
-                Debug.LogWarning("NULL pathNodes");
-                return null;
-            }
-            Debug.Log("PATH DAMAGE: " + GetPathDamage(LastPath) + "\n" + "PATH LENGTH: " + LastPath.Count);
         
-            List<AStarNode> result = new List<AStarNode>(LastPath.Count);
-            LastPath.ForEach(pn => result.Add(GetNodeByIndex(pn.Position.x, pn.Position.y)));
-            return result;
-        }
-
-        private List<AStarPathNode> FindPath(AStarNode start, AStarNode goal, AStarAgent agent)
-        {
-            Debug.Log("Finding path from " + start.GridPosition + " to " + goal.GridPosition);
-            // Шаг 1.
-            ClosedSet = new List<AStarPathNode>();
-            OpenSet = new List<AStarPathNode>();
-            // Шаг 2.
-            AStarPathNode startNode = new AStarPathNode()
-            {
-                Position = start.GridPosition,
-                CameFrom = null,
-                PathLengthFromStart = 0,
-                HeuristicEstimatePathLength = GetHeuristicPathLength(start.GridPosition, goal.GridPosition),
-                DamageValueFromStart = start.DamageValue,
-                HeruisticEstimateDamageValue = GetHeuristicDamage(start.GridPosition, goal.GridPosition),
-                DamageRatio = DamageDetectionMode == DamageDetectionMode.Average ? DamageInfluenceRatio : 0
-            };
-            OpenSet.Add(startNode);
-        
-            while (OpenSet.Count > 0)
-            {
-                // Шаг 3.
-                var currentNode = OpenSet.OrderBy(node =>
-                    node.F).First();
-                // Шаг 4.
-                if (currentNode.Position == goal.GridPosition)
-                    //return openSet;
-                    return GetPathForNode(currentNode);
-                // Шаг 5.
-                OpenSet.Remove(currentNode);
-                ClosedSet.Add(currentNode);
-                // Шаг 6.
-                foreach (var neighbourNode in GetNeighbours(currentNode, goal.GridPosition, agent))
-                {
-                    // Шаг 7.
-                    if (ClosedSet.Exists(node => node.Position == neighbourNode.Position))
-                        continue;
-
-                    var openNode = OpenSet.FirstOrDefault(node =>
-                        node.Position == neighbourNode.Position);
-                    // Шаг 8.
-                    if (openNode == null)
-                    {
-                        OpenSet.Add(neighbourNode);   
-                    }  
-                    else
-                    if (openNode.PathLengthFromStart > neighbourNode.PathLengthFromStart)
-                    {
-                        // Шаг 9.
-                        openNode.CameFrom = currentNode;
-                        openNode.PathLengthFromStart = neighbourNode.PathLengthFromStart;
-                    }
-                }
-            }
-            // Шаг 10.
-            return null;
-        }
-
         private float GetAverageDamage(Vector2Int from, Vector2Int to)
         {
             if (Grid == null)
@@ -324,22 +347,6 @@ namespace Pathfinding.MonoBehaviours
         private float GetPathDamage(List<AStarPathNode> path)
         {
             return path.Last().DamageValueFromStart;
-        }
-
-        public AStarNode GetNearestNode(Vector2 position, Predicate<AStarNode> predicate = null, int maxCheckCount = -1)
-        {
-            if (!_clampedScanBounds.Contains(position))
-                return null;
-
-            var xDeltaIndex = (int)((position.x - _clampedScanBounds.min.x) / NodeSize);
-            var yDeltaIndex = (int)((position.y - _clampedScanBounds.min.y) / NodeSize);
-
-            if (predicate == null)
-            {
-                return GetNodeByIndex(xDeltaIndex, yDeltaIndex);
-            }
-
-            return FindByPredicate(xDeltaIndex, yDeltaIndex, maxCheckCount, predicate);
         }
 
         private AStarNode FindByPredicate(int startXIndex, int startYIndex, int maxCyclesCount, Predicate<AStarNode> predicate)

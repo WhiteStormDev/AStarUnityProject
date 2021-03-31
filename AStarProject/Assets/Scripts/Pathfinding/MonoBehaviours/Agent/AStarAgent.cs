@@ -1,7 +1,9 @@
 ﻿using System.Collections.Generic;
+using System.Linq;
 using DG.Tweening;
 using Game.Units.Controllers;
 using Pathfinding.Base;
+using Pathfinding.Interfaces;
 using UnityEditor;
 using UnityEngine;
 
@@ -28,8 +30,15 @@ namespace Pathfinding.MonoBehaviours.Agent
 		private List<AStarNode> _path;
 		private int _currentNodeIndex;
 
-		public float CurrentHP => _unit.CurrentHP;
+		public List<IModifier> Modifiers { get; private set; } = new List<IModifier>();
 		
+		public float CurrentHP => _unit.CurrentHP;
+
+		private void Awake()
+		{
+			Modifiers = GetComponentsInChildren<IModifier>().ToList();
+		}
+
 		private void Update()
 		{
 			if (!IsActive)
@@ -78,21 +87,19 @@ namespace Pathfinding.MonoBehaviours.Agent
 		}
 		
 		/// <summary>
-		/// return calculated path
+		/// Set calculated path
 		/// </summary>
-		/// <param name="position"></param>
+		/// <param name="goalPosition"></param>
 		/// <returns></returns>
-		public List<AStarNode> SetPath(Vector2 position)
+		public void SetPath(Vector2 goalPosition)
 		{
-			var path = AStarPathfinding.Instance.GetMinimumPath(transform.position, position, this);
+			var path = AStarPathfinding.Instance.GetMinimumPath(transform.position, goalPosition, this);
 			_currentNodeIndex = 0;
 
 			if (path != null)
 				_path = path;
 			else
 				Debug.LogWarning("NULL path");
-
-			return path;
 		}
 
 #if UNITY_EDITOR
