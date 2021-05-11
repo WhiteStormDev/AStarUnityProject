@@ -83,7 +83,7 @@ namespace Pathfinding.MonoBehaviours
 				case AnalyseMode.DamageRatioValidating:
 					while (_damageStep < DamageInfluenceRatioMaxValue)
 					{
-						AStarPathfinding.Instance.DamageInfluenceRatio = _damageStep;
+						AStarPathfinding.Instance.SettingsConfig.DefaultWeightInfluenceRatio = _damageStep;
 						ValidatePath();
 						_damageStep += DamageInfluenceRatioStep;
 					}
@@ -91,7 +91,7 @@ namespace Pathfinding.MonoBehaviours
 				case AnalyseMode.HeuristicDistanceValidating:
 					while (_heuristicStep < HeuristicDistanceMaxValue)
 					{
-						AStarPathfinding.Instance.DamageInfluenceRatio = _damageStep;
+						AStarPathfinding.Instance.SettingsConfig.DefaultWeightInfluenceRatio = _damageStep;
 						ValidatePath();
 						_heuristicStep += HeuristicDistanceStep;
 					}
@@ -111,9 +111,9 @@ namespace Pathfinding.MonoBehaviours
 			{
 				_pathResults.Add(new PathResult
 				{
-					DamageSum = path[path.Count - 1].DamageValueFromStart,
+					DamageSum = path[path.Count - 1].WeightValueFromStart,
 					PathLength = path.Count,
-					CheckedNodesCount = AStarPathfinding.Instance.ClosetSetCount + AStarPathfinding.Instance.OpenSetCount,
+					CheckedNodesCount = AStarPathfinding.Instance.ClosedSetCount + AStarPathfinding.Instance.OpenSetCount,
 					Path = path
 				});
 			}
@@ -176,7 +176,7 @@ namespace Pathfinding.MonoBehaviours
 			{
 				var r = _pathResults[i];
 				linePoints[i] = Zero.position + new Vector3(xStep * i, yStep * (r.DamageSum - minDamage.DamageSum), zStep * (r.PathLength - minLength.PathLength));
-				if (r.Path.Find(n => n.DamageValueFromStart >= Agent.CurrentHP) != null)
+				if (r.Path.Find(n => n.WeightValueFromStart >= Agent.AgentWeightProvider.AgentWeight) != null)
 				{
 					_instantiatedDrawers.Add(ReusableLocalPool.Instance.Instantiate(System.IO.Path.Combine("Prefabs", DeathPathPrefab.name), linePoints[i], Quaternion.identity));
 				}

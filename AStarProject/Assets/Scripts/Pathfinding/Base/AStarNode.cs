@@ -1,4 +1,5 @@
-﻿using UnityEngine;
+﻿using Pathfinding.Components;
+using UnityEngine;
 
 namespace Pathfinding.Base
 {
@@ -7,15 +8,24 @@ namespace Pathfinding.Base
         public Vector2Int GridPosition;
         public Vector2 Center;
         public bool Walkable { get; set; }
-        public float DamageValue { get; set; }
-        public bool Damaging => DamageValue > 0;
+        public float WeightValue { get; set; }
+        public bool Weightable => WeightValue > 0;
 
         public AStarNode() { }
-        public AStarNode(Vector2 center, bool walkable, float damageValue)
+        public AStarNode(Vector2 center, bool walkable, float weightValue)
         {
-            DamageValue = damageValue;
+            WeightValue = weightValue;
             Center = center;
             Walkable = walkable;
+        }
+        
+        [TestOnly]
+        public AStarNode(Vector2 center, Vector2Int gridPosition, bool walkable, float weightValue)
+        {
+            WeightValue = weightValue;
+            Center = center;
+            Walkable = walkable;
+            GridPosition = gridPosition;
         }
     }
 }

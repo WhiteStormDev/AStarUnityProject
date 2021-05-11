@@ -9,7 +9,7 @@ using UnityEngine;
 
 namespace Pathfinding.MonoBehaviours.Agent
 {
-	public class AStarAgent : MonoBehaviour
+	public class AStarAgent : MonoBehaviour, IAStarAgent
 	{
 		public bool IsActive = true;
 		[Space (10f)]
@@ -25,14 +25,14 @@ namespace Pathfinding.MonoBehaviours.Agent
 		private float _currentPathUpdateTimer;
 
 		[Header("Unit")]
-		[SerializeField] private UnitController _unit;
+		[SerializeField] private AStarAgentWeightProviderBase _agentWeightProvider;
 
 		private List<AStarNode> _path;
 		private int _currentNodeIndex;
 
 		public List<IModifier> Modifiers { get; private set; } = new List<IModifier>();
-		
-		public float CurrentHP => _unit.CurrentHP;
+
+		public AStarAgentWeightProviderBase AgentWeightProvider => _agentWeightProvider;
 
 		private void Awake()
 		{
@@ -93,7 +93,7 @@ namespace Pathfinding.MonoBehaviours.Agent
 		/// <returns></returns>
 		public void SetPath(Vector2 goalPosition)
 		{
-			var path = AStarPathfinding.Instance.GetMinimumPath(transform.position, goalPosition, this);
+			var path = AStarPathfinding.Instance.GetPath(transform.position, goalPosition, this);
 			_currentNodeIndex = 0;
 
 			if (path != null)
@@ -108,7 +108,7 @@ namespace Pathfinding.MonoBehaviours.Agent
 			if (_path == null)
 				return;
 			Gizmos.color = Color.yellow;
-			for (int i = 0; i < _path.Count - 1; i++)
+			for (var i = 0; i < _path.Count - 1; i++)
 			{
 				Gizmos.DrawLine(_path[i].Center, _path[i + 1].Center);
 			}
@@ -119,7 +119,7 @@ namespace Pathfinding.MonoBehaviours.Agent
 			if (_path == null)
 				return;
 			Gizmos.color = Color.cyan;
-			for (int i = 0; i < _path.Count - 3; i += 3)
+			for (var i = 0; i < _path.Count - 3; i += 3)
 			{
 				Handles.DrawBezier(_path[i].Center, _path[i + 3].Center, _path[i+1].Center, _path[i+2].Center, Color.cyan, Texture2D.whiteTexture, 1);
 			}

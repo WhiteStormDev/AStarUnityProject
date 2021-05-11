@@ -1,9 +1,6 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
+﻿using System.Collections.Generic;
 using Pathfinding.Base;
-using Pathfinding.Enums;
-using Pathfinding.Interfaces;
+using Pathfinding.Configs;
 using Pathfinding.MonoBehaviours.Agent;
 using UnityEngine;
 
@@ -11,34 +8,23 @@ namespace Pathfinding.MonoBehaviours
 {
     public class AStarPathfinding : MonoBehaviour
     {
-        [Header("Find Stategy")]
-        public DamageDetectionMode DamageDetectionMode;
-        [Range (0f, 1f)]
-        public float DamageInfluenceRatio;
-        public float AverageDamage;
-        [Range (0, 10)]
-        public int HeuristicMultiplier = 1;
-        [Header("Scan Settings")]
-        [Tooltip("Node width & height")]
-        public float NodeSize;
-        public Bounds ScanBounds;
+        [SerializeField] 
+        private AStarPathfindingSettingsConfig _settingsConfig;
 
-        [Header("Layers")]
-        public CheckingMode CheckingMode;
-        public LayerMask ObstaclesLayerMask;
-        public LayerMask DamagingEnvironmentLayerMask;
-
+        [SerializeField] 
+        private ScanSettings _scanSettings;
+        
         public static AStarPathfinding Instance { get; private set; }
-        public List<AStarPathNode> LastPath { get; private set; }
-        public AStarNode[,] Grid { get; private set; }
-        public List<AStarPathNode> ClosedSet { get; private set; }
-        public List<AStarPathNode> OpenSet { get; private set; }
-        public Bounds ClampedScanBounds => _clampedScanBounds;
-        public int ClosetSetCount => ClosedSet?.Count ?? 0;
-        public int OpenSetCount => OpenSet?.Count ?? 0;
 
-        private float _predictedAgentHp;
-        private Bounds _clampedScanBounds;
+        public List<AStarPathNode> LastPath =>
+            _pathfindingMechanics == null ? new List<AStarPathNode>() : _pathfindingMechanics.LastPath;
+
+        public int ClosedSetCount => _pathfindingMechanics?.ClosetSetCount ?? 0;
+        public int OpenSetCount => _pathfindingMechanics?.OpenSetCount ?? 0;
+        
+        public AStarPathfindingSettingsConfig SettingsConfig => _settingsConfig;
+
+        private AStarPathfindingMechanics _pathfindingMechanics;
         
         private void Awake()
         {
@@ -47,328 +33,49 @@ namespace Pathfinding.MonoBehaviours
 
         private void Start()
         {
-            SetClampedScanBounds(ScanBounds);
             Scan();
         }
         
-        /// <summary>
-        /// Returns nearest node for game world position 
-        /// </summary>
-        /// <param name="position"></param>
-        /// <param name="maxCheckCount"></param>
-        /// <returns></returns>
-        public AStarNode GetNearestNode(Vector2 position, int maxCheckCount = -1)
+        private bool TryGetClampedScanBounds(Bounds bounds, out Bounds clampedBounds)
         {
-            if (!_clampedScanBounds.Contains(position))
-                return null;
-
-            var xDeltaIndex = (int)((position.x - _clampedScanBounds.min.x) / NodeSize);
-            var yDeltaIndex = (int)((position.y - _clampedScanBounds.min.y) / NodeSize);
-
-            return GetNodeByIndex(xDeltaIndex, yDeltaIndex);
-        }
-
-        /// <summary>
-        /// Scan game field for calculating the grid
-        /// </summary>
-        public void Scan()
-        {
-            SetClampedScanBounds(ScanBounds);
-            Grid = new AStarNode[(int)(_clampedScanBounds.extents.x / NodeSize) * 2, (int)(_clampedScanBounds.extents.y / NodeSize) * 2];
-            var damagersCount = 0;
-            var sumDamage = 0f;
-
-            int i = 0;
-            int j = 0;
-            for (float x = _clampedScanBounds.min.x; x < _clampedScanBounds.max.x - NodeSize / 2; x += NodeSize)
-            {
-                for (float y = _clampedScanBounds.min.y; y < _clampedScanBounds.max.y - NodeSize / 2; y += NodeSize)
-                {
-                    var center = new Vector2(x + NodeSize / 2, y + NodeSize / 2);
-                    var node = CreateNode(center, new Vector2Int(i, j));
-                    if (node.Damaging)
-                    {
-                        damagersCount++;
-                        sumDamage += node.DamageValue;
-                    }
-                    Grid[i, j] = node;
-                    j++;
-                }
-                i++;
-                j = 0;
-            }
-
-            AverageDamage = damagersCount > 0 ? sumDamage / damagersCount : 0;
-        }
-        
-        /// <summary>
-        /// Returns minimum path to goal position, apply all agent modifiers
-        /// </summary>
-        /// <param name="startPosition"></param>
-        /// <param name="goalPosition"></param>
-        /// <param name="agent"></param>
-        /// <returns></returns>
-        public List<AStarNode> GetMinimumPath(Vector2 startPosition, Vector2 goalPosition, AStarAgent agent)
-        {
-            var start = GetNearestNode(startPosition);
-            var goal = GetNearestNode(goalPosition);
-
-            if (start == null)
-            {
-                Debug.LogWarning("Can't find StartNode");
-                return null;
-            }
-
-            if (goal == null)
-            {
-                Debug.LogWarning("Can't find EndNode");
-                return null;
-            }
-
-            LastPath = FindPath(start, goal, agent);
-            if (LastPath == null)
-            {
-                Debug.LogWarning("NULL pathNodes");
-                return null;
-            }
-            Debug.Log("PATH DAMAGE: " + GetPathDamage(LastPath) + "\n" + "PATH LENGTH: " + LastPath.Count);
-        
-            agent.Modifiers.ForEach(m => m.ApplyModifier(LastPath));
+            clampedBounds = new Bounds();
             
-            List<AStarNode> result = new List<AStarNode>(LastPath.Count);
-            LastPath.ForEach(pn => result.Add(GetNodeByIndex(pn.Position.x, pn.Position.y)));
-            return result;
-        }
-
-        private List<AStarPathNode> FindPath(AStarNode start, AStarNode goal, AStarAgent agent)
-        {
-            Debug.Log("Finding path from " + start.GridPosition + " to " + goal.GridPosition);
-        
-            ClosedSet = new List<AStarPathNode>();
-            OpenSet = new List<AStarPathNode>();
-       
-            AStarPathNode startNode = new AStarPathNode()
-            {
-                Position = start.GridPosition,
-                CameFrom = null,
-                PathLengthFromStart = 0,
-                HeuristicEstimatePathLength = GetHeuristicPathLength(start.GridPosition, goal.GridPosition),
-                DamageValueFromStart = start.DamageValue,
-                HeruisticEstimateDamageValue = GetHeuristicDamage(start.GridPosition, goal.GridPosition),
-                DamageRatio = DamageDetectionMode == DamageDetectionMode.Average ? DamageInfluenceRatio : 0
-            };
-            OpenSet.Add(startNode);
-        
-            while (OpenSet.Count > 0)
-            {
-                var currentNode = OpenSet.OrderBy(node =>
-                    node.F).First();
-                
-                if (currentNode.Position == goal.GridPosition)
-                    //return openSet;
-                    return GetPathForNode(currentNode);
-           
-                OpenSet.Remove(currentNode);
-                ClosedSet.Add(currentNode);
-              
-                foreach (var neighbourNode in GetNeighbours(currentNode, goal.GridPosition, agent))
-                {
-                    if (ClosedSet.Exists(node => node.Position == neighbourNode.Position))
-                        continue;
-
-                    var openNode = OpenSet.FirstOrDefault(node =>
-                        node.Position == neighbourNode.Position);
-                  
-                    if (openNode == null)
-                    {
-                        OpenSet.Add(neighbourNode);   
-                    }  
-                    else
-                    if (openNode.PathLengthFromStart > neighbourNode.PathLengthFromStart)
-                    {
-                        openNode.CameFrom = currentNode;
-                        openNode.PathLengthFromStart = neighbourNode.PathLengthFromStart;
-                    }
-                }
-            }
-     
-            return null;
-        }
-
-        private void SetClampedScanBounds(Bounds bounds)
-        {
-            if (NodeSize > 0)
+            if (_scanSettings.NodeSize > 0)
             {
                 var x = bounds.extents.x - bounds.center.x;
                 var y = bounds.extents.y - bounds.center.y;
-                _clampedScanBounds.center = bounds.center + transform.position;
+                clampedBounds.center = bounds.center + transform.position;
 
-                var clampX = x - x % NodeSize;
-                var clampY = y - y % NodeSize;
-                _clampedScanBounds.extents = new Vector3(clampX, clampY);
-
+                var clampX = x - x % _scanSettings.NodeSize;
+                var clampY = y - y % _scanSettings.NodeSize;
+                clampedBounds.extents = new Vector3(clampX, clampY);
+                return true;
             }
-            else
+
+            Debug.LogError("[AStarPathfinding] NodeSize must be positive and not 0");
+            return false;
+        }
+
+        private void Scan()
+        {
+            if (_pathfindingMechanics == null)
+                _pathfindingMechanics = new AStarPathfindingMechanics(_settingsConfig, _scanSettings);
+            
+            if (TryGetClampedScanBounds(_scanSettings.ScanBounds, out var clampedBounds));
             {
-                Debug.LogError("NodeSize must be positive and not 0");
+                _pathfindingMechanics.Scan(clampedBounds);
             }
         }
 
-        private AStarNode CreateNode(Vector2 center, Vector2Int gridPosition)
+        public List<AStarNode> GetPath(Vector2 from, Vector2 to, IAStarAgent agent)
         {
-            AStarNode node = new AStarNode();
-            node.Center = center;
-            node.GridPosition = gridPosition;
-            switch (CheckingMode)
+            if (_pathfindingMechanics == null)
             {
-                case CheckingMode.Circle:
-                    var wallCollider = Physics2D.OverlapCircle(center, NodeSize / 2.2f, ObstaclesLayerMask);
-                    node.Walkable = wallCollider == null;
-                    var damagerCollider = Physics2D.OverlapCircle(center, NodeSize / 2.2f, DamagingEnvironmentLayerMask);
-                    if (damagerCollider != null)
-                    {
-                        var damager = damagerCollider.GetComponent<IAStarDamager>();
-                        if (damager != null)
-                            node.DamageValue = damager.Damage;
-                    }
-                    break;
-                case CheckingMode.Point:
-                    var pWallCollider = Physics2D.OverlapCircle(center, NodeSize / 10f, ObstaclesLayerMask);
-                    node.Walkable = pWallCollider == null;
-                    var pDamagerCollider = Physics2D.OverlapCircle(center, NodeSize / 10f, DamagingEnvironmentLayerMask);
-                    if (pDamagerCollider != null)
-                    {
-                        var damager = pDamagerCollider.GetComponent<IAStarDamager>();
-                        if (damager != null)
-                            node.DamageValue = damager.Damage;
-                    }
-                    break;
-            }
-            return node;
-        }
-        
-        private float GetAverageDamage(Vector2Int from, Vector2Int to)
-        {
-            if (Grid == null)
-                return 0;
-
-            var xLength = Grid.GetLength(0);
-            var yLength = Grid.GetLength(1);
-
-            if (from.x >= xLength || from.y >= yLength || to.x >= xLength || to.y >= yLength)
-                return 0;
-
-            var count = 0;
-            var sum = 0f;
-            for (int i = 0; i < xLength; i++)
-            {
-                for (int j = 0; j < yLength; j++)
-                {
-                    var node = Grid[i, j];
-                    sum += node.DamageValue;
-                    count++;
-                }
+                Debug.LogError("[AStarPathfinding] Path not found ERROR");
+                return new List<AStarNode>();
             }
 
-            return sum / count;
-        }
-
-        private float GetHeuristicDamage(Vector2Int from, Vector2Int to) => DamageDetectionMode == DamageDetectionMode.Average ? GetAverageDamage(from, to) : 0;
-    
-        private int GetDistanceBetweenNeighbours() => 1;
-
-        private int GetHeuristicPathLength(Vector2Int from, Vector2Int to) => HeuristicMultiplier * (Math.Abs(from.x - to.x) + Math.Abs(from.y - to.y));
-
-        private List<AStarPathNode> GetNeighbours(AStarPathNode pathNode, Vector2Int goal, AStarAgent agent)
-        {
-            var result = new List<AStarPathNode>();
-
-            // Соседними точками являются соседние по стороне клетки.
-            Vector2Int[] neighbourPoints = new Vector2Int[4];
-            neighbourPoints[0] = new Vector2Int(pathNode.Position.x + 1, pathNode.Position.y);
-            neighbourPoints[1] = new Vector2Int(pathNode.Position.x - 1, pathNode.Position.y);
-            neighbourPoints[2] = new Vector2Int(pathNode.Position.x, pathNode.Position.y + 1);
-            neighbourPoints[3] = new Vector2Int(pathNode.Position.x, pathNode.Position.y - 1);
-
-            foreach (var point in neighbourPoints)
-            {
-                // Проверяем, что не вышли за границы карты.
-                if (point.x < 0 || point.x >= Grid.GetLength(0))
-                    continue;
-                if (point.y < 0 || point.y >= Grid.GetLength(1))
-                    continue;
-                // Проверяем, что по клетке можно ходить.
-                if (Grid[point.x, point.y] != null && !Grid[point.x, point.y].Walkable)
-                    continue;
-                var damageFromStart = pathNode.DamageValueFromStart + Grid[point.x, point.y].DamageValue;
-                if (DamageDetectionMode == DamageDetectionMode.LethalCheck)
-                {
-                    var node = Grid[point.x, point.y];
-                    if (node.DamageValue >= agent.CurrentHP)
-                        continue;
-                }
-                else
-                if (DamageDetectionMode == DamageDetectionMode.PredictedLethalCheck)
-                {
-                    if (damageFromStart >= agent.CurrentHP)
-                        continue;
-                }
-                // Заполняем данные для точки маршрута.
-                var neighbourNode = new AStarPathNode()
-                {
-                    Position = point,
-                    CameFrom = pathNode,
-                    PathLengthFromStart = pathNode.PathLengthFromStart +
-                                          GetDistanceBetweenNeighbours(),
-                    HeuristicEstimatePathLength = GetHeuristicPathLength(point, goal),
-                    DamageValueFromStart = pathNode.DamageValueFromStart + Grid[point.x, point.y].DamageValue,
-                    HeruisticEstimateDamageValue = GetHeuristicDamage(point, goal),
-                    DamageRatio = DamageDetectionMode == DamageDetectionMode.Average ? DamageInfluenceRatio : 0
-                };
-
-                result.Add(neighbourNode);
-            }
-            return result;
-        }
-
-        private List<AStarPathNode> GetPathForNode(AStarPathNode pathNode)
-        {
-            var result = new List<AStarPathNode>();
-            var currentNode = pathNode;
-            while (currentNode != null)
-            {
-			
-                result.Add(currentNode);
-                currentNode = currentNode.CameFrom;
-            }
-            result.Reverse();
-            return result;
-        }
-        private float GetPathDamage(List<AStarPathNode> path)
-        {
-            return path.Last().DamageValueFromStart;
-        }
-
-        private AStarNode FindByPredicate(int startXIndex, int startYIndex, int maxCyclesCount, Predicate<AStarNode> predicate)
-        {
-            //поиск с рекурсивным расширением
-            return GetNodeByIndex(startXIndex, startYIndex);
-        }
-
-        private AStarNode GetNodeByIndex(int xIndex, int yIndex)
-        {
-            if (Grid == null)
-            {
-                Debug.LogWarning("NULL grid");
-                return null;
-            }
-            if (xIndex >= Grid.GetLength(0) || yIndex >= Grid.GetLength(1))
-            {
-                Debug.LogWarning("wrong grid index");
-                return null;
-            }
-
-            return Grid[xIndex, yIndex];
+            return _pathfindingMechanics.GetMinimumPath(from, to, agent);
         }
         
 #if UNITY_EDITOR
@@ -380,22 +87,23 @@ namespace Pathfinding.MonoBehaviours
 
         private void DrawGrid()
         {
-            if (Grid == null)
+            if (_pathfindingMechanics == null)
                 return;
 
+            var grid = _pathfindingMechanics.Grid;
             var damagers = new List<AStarNode>();
             var walls = new List<AStarNode>();
             var walkables = new List<AStarNode>();
 
-            for (int i = 0; i < Grid.GetLength(0); i++)
+            for (int i = 0; i < grid.GetLength(0); i++)
             {
-                for (int j = 0; j < Grid.GetLength(1); j++)
+                for (int j = 0; j < grid.GetLength(1); j++)
                 {
-                    var node = Grid[i, j];
+                    var node = grid[i, j];
                     if (node == null)
                         break;
 
-                    if (node.Damaging)
+                    if (node.Weightable)
                         damagers.Add(node);
                     if (node.Walkable)
                         walkables.Add(node);
@@ -404,60 +112,73 @@ namespace Pathfinding.MonoBehaviours
                 }
             }
 
-            Gizmos.color = UnityEngine.Color.gray;
-            walkables.ForEach(w => Gizmos.DrawWireCube(w.Center, new Vector3(NodeSize, NodeSize, 0)));
+            Gizmos.color = Color.gray;
+            walkables.ForEach(w => Gizmos.DrawWireCube(w.Center, new Vector3(_scanSettings.NodeSize, _scanSettings.NodeSize, 0)));
 
-            Gizmos.color = new UnityEngine.Color(0.9f, 0.9f, 0.9f, 0.3f);
-            walls.ForEach(w => Gizmos.DrawCube(w.Center, new Vector3(NodeSize, NodeSize, 0)));
+            Gizmos.color = new Color(0.9f, 0.9f, 0.9f, 0.3f);
+            walls.ForEach(w => Gizmos.DrawCube(w.Center, new Vector3(_scanSettings.NodeSize, _scanSettings.NodeSize, 0)));
 
-            Gizmos.color = new UnityEngine.Color(UnityEngine.Color.red.r, UnityEngine.Color.red.g, UnityEngine.Color.red.b, 0.3f);
-            damagers.ForEach(d => Gizmos.DrawCube(d.Center, new Vector3(NodeSize, NodeSize, 0)));
+            Gizmos.color = new Color(Color.red.r, Color.red.g, Color.red.b, 0.3f);
+            damagers.ForEach(d => Gizmos.DrawCube(d.Center, new Vector3(_scanSettings.NodeSize, _scanSettings.NodeSize, 0)));
         }
 
-        private void OnValidate()
+        private void DrawBounds(Bounds bounds, Color color)
         {
-            if (NodeSize > 0)
-            {
-                var x = ScanBounds.extents.x - ScanBounds.center.x;
-                var y = ScanBounds.extents.y - ScanBounds.center.y;
-                _clampedScanBounds.center = ScanBounds.center + transform.position;
-
-                var clampX = x - x % NodeSize;
-                var clampY = y - y % NodeSize;
-                _clampedScanBounds.extents = new Vector3(clampX, clampY);
-            }
+            Gizmos.color = color;
+            Gizmos.DrawWireCube(bounds.center, bounds.size);
         }
+        
+        // private void OnValidate()
+        // {
+        //     if (NodeSize > 0)
+        //     {
+        //         var x = ScanBounds.extents.x - ScanBounds.center.x;
+        //         var y = ScanBounds.extents.y - ScanBounds.center.y;
+        //         _clampedScanBounds.center = ScanBounds.center + transform.position;
+        //
+        //         var clampX = x - x % NodeSize;
+        //         var clampY = y - y % NodeSize;
+        //         _clampedScanBounds.extents = new Vector3(clampX, clampY);
+        //     }
+        // }
 
         private void OnDrawGizmosSelected()
         {
-            Gizmos.color = UnityEngine.Color.blue;
-            Gizmos.DrawLine(_clampedScanBounds.min, new Vector3(_clampedScanBounds.min.x, _clampedScanBounds.max.y));
-            Gizmos.DrawLine(_clampedScanBounds.min, new Vector3(_clampedScanBounds.max.x, _clampedScanBounds.min.y));
-            Gizmos.DrawLine(_clampedScanBounds.max, new Vector3(_clampedScanBounds.min.x, _clampedScanBounds.max.y));
-            Gizmos.DrawLine(_clampedScanBounds.max, new Vector3(_clampedScanBounds.max.x, _clampedScanBounds.min.y));
+            if (TryGetClampedScanBounds(_scanSettings.ScanBounds, out var clamped));
+                DrawBounds(clamped, Color.blue);
 
+            if (_pathfindingMechanics == null)
+                return;
+            
             DrawGrid();
         }
-
+        
         private void OnDrawGizmos()
         {
-            Gizmos.color = new UnityEngine.Color(UnityEngine.Color.magenta.r, UnityEngine.Color.magenta.g, UnityEngine.Color.magenta.b, 0.8f);
+            if (_pathfindingMechanics == null)
+                return;
+            
+            var grid = _pathfindingMechanics.Grid;
+            var closedSet = _pathfindingMechanics.ClosedSet;
+            var openSet = _pathfindingMechanics.OpenSet;
+            
+            Gizmos.color = new Color(Color.magenta.r, Color.magenta.g, Color.magenta.b, 0.8f);
 
-            ClosedSet?.ForEach(cs =>
+            closedSet?.ForEach(cs =>
             {
-                if (cs.Position.x < Grid.GetLength(0) && cs.Position.y < Grid.GetLength(1))
+                if (cs.Position.x < grid.GetLength(0) && cs.Position.y < grid.GetLength(1))
                 {
-                    var node = Grid[cs.Position.x, cs.Position.y];
-                    Gizmos.DrawSphere(node.Center, NodeSize / 4);
+                    var node = grid[cs.Position.x, cs.Position.y];
+                    Gizmos.DrawSphere(node.Center, _scanSettings.NodeSize / 4);
                 } 
             });
-            Gizmos.color = new UnityEngine.Color(UnityEngine.Color.green.r, UnityEngine.Color.green.g, UnityEngine.Color.green.b, 0.8f);
-            OpenSet?.ForEach(os =>
+            Gizmos.color = new Color(Color.green.r, Color.green.g, Color.green.b, 0.8f);
+            openSet?.ForEach(os =>
             {
-                if (os.Position.x < Grid.GetLength(0) && os.Position.y < Grid.GetLength(1))
+                if (os.Position.x < grid.GetLength(0) && os.Position.y < grid.GetLength(1))
                 {
-                    var node = Grid[os.Position.x, os.Position.y];
-                    Gizmos.DrawSphere(node.Center, NodeSize / 4);
+                    var node = grid[os.Position.x, os.Position.y];
+                    Gizmos.DrawSphere(node.Center, _scanSettings.NodeSize / 4);
                 }
             });
         }

@@ -5,7 +5,7 @@ namespace Pathfinding.Base
 {
 	public class AStarPathNode
 	{
-		public DamageDetectionMode DamageDetectionMode;
+		public WeightDetectionMode WeightDetectionMode;
 
 		public Vector2Int Position { get; set; }
 
@@ -17,12 +17,12 @@ namespace Pathfinding.Base
 
 		public int EstimateFullPathLength => PathLengthFromStart + HeuristicEstimatePathLength;
 
-		public float DamageValueFromStart { get; set; }
-		public float HeruisticEstimateDamageValue { get; set; }
-		public float EstimateFullDamageValue => DamageValueFromStart + HeruisticEstimateDamageValue;
+		public float WeightValueFromStart { get; set; }
+		public float HeruisticEstimateWeightValue { get; set; }
+		public float EstimateFullWeightValue => WeightValueFromStart + HeruisticEstimateWeightValue;
 
-		private float _damageRatio;
-		public float DamageRatio { get => _damageRatio; set => _damageRatio = Mathf.Clamp(value, 0, 1); }
-		public float F => EstimateFullPathLength + DamageRatio * EstimateFullDamageValue;
+		private float _weightRatio;
+		public float WeightRatio { get => _weightRatio; set => _weightRatio = Mathf.Clamp(value, 0, 1); }
+		public float F => EstimateFullPathLength + WeightRatio * EstimateFullWeightValue;
 	}
 }

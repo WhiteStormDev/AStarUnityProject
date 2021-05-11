@@ -12,6 +12,7 @@ GameObject:
   - component: {fileID: 3883398248814005982}
   - component: {fileID: 3883398248814005980}
   - component: {fileID: 3883398248814005979}
+  - component: {fileID: 1059310754291662815}
   m_Layer: 0
   m_Name: AStar AGENT
   m_TagString: Untagged
@@ -54,7 +55,7 @@ MonoBehaviour:
   CanMove: 0
   OneNodeMoveDuration: 0.1
   NodeStopTimer: 0.3
-  _unit: {fileID: 3883398248814005979}
+  _agentWeightProvider: {fileID: 1059310754291662815}
 --- !u!50 &3883398248814005980
 Rigidbody2D:
   serializedVersion: 4
@@ -90,6 +91,21 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   _maxHP: 100
   _currentHP: 0
+  _agentWeightProvider: {fileID: 1059310754291662815}
+--- !u!114 &1059310754291662815
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3883398248814005978}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7d0e385f0e5b40fda36542033702ba1b, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  _currentWeight: 0
+  _unit: {fileID: 3883398248814005979}
 --- !u!1 &3883398248879308866
 GameObject:
   m_ObjectHideFlags: 0
@@ -182,6 +198,7 @@ SpriteRenderer:
   m_MotionVectors: 1
   m_LightProbeUsage: 1
   m_ReflectionProbeUsage: 1
+  m_RayTracingMode: 0
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
